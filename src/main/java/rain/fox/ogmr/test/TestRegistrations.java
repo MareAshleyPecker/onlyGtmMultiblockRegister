@@ -223,6 +223,11 @@ public final class TestRegistrations {
                 .additionalDisplay((controller, lines) -> lines.add(
                         Component.translatable("block.ogmr.test_multiblock.tooltip.0")))
                 .langValue("Test Multiblock (threaded)", "测试多方块（多线程）")
+                // 正面覆盖层 + 成型层 + 工作时的发光层（照 GTM 的 overlay_front / IS_FORMED /
+                // overlay_front_emissive 那三个槽）。成型层只在结构成型后出现，发光层只在跑配方时出现。
+                .overlay()
+                .formedOverlay()
+                .emissiveOverlay()
                 // 显式界面：标题 + 进度条 + 线程状态文本（演示「addon 自己配 UI」这条通道；
                 // 不写这行的话 builder 会给一个零配置界面 —— 标题 + 背包 + 按仓储自动摆的槽位）
                 .ui(MachineUI.create("test_multiblock", Ogmr.id("test_multiblock"))
@@ -249,6 +254,8 @@ public final class TestRegistrations {
                 .appearanceBlock(() -> CASING)
                 .tooltips(Component.translatable("block.ogmr.test_generator.tooltip"))
                 .langValue("Test Generator (energy out)", "测试发电机（产能）")
+                .overlay()
+                .emissiveOverlay()
                 .modelTexture(vanillaTexture("gold_block"))
                 .pattern(TestRegistrations::testPattern)
                 .register();

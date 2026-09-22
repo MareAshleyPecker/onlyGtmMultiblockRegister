@@ -12,6 +12,7 @@ import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 
 import lombok.Getter;
 
+import rain.fox.ogmr.api.block.MachineBlock;
 import rain.fox.ogmr.api.gui.MachineUI;
 import rain.fox.ogmr.api.gui.MachineUIWidget;
 import rain.fox.ogmr.api.gui.factory.MachineUIFactory;
@@ -27,6 +28,8 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BooleanProperty;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.client.model.data.ModelData;
@@ -218,6 +221,37 @@ public abstract class MetaMachine implements IManaged, ITagSerializable<Compound
     /** 标记 BE 脏（等价于原版 {@code BlockEntity#setChanged}）。 */
     public void markDirty() {
         holder.self().setChanged();
+    }
+
+    // ═══════════════ 方块状态（渲染用） ═══════════════
+
+    /**
+     * 把机器的工作/成型状态写进方块状态 —— 覆盖层贴图就是按这两个属性选模型的
+     * （见 {@link MachineBlock#ACTIVE} / {@link MachineBlock#FORMED}）。
+     *
+     * <p>
+     * 属性不存在（例如没建出该属性的方块）时什么都不做，不抛异常；值没变时也直接返回，
+     * 免得每 tick 都刷一次方块。
+     */
+    public void setBlockStateBoolean(BooleanProperty property, boolean value) {
+        if (property == null) return;
+        Level level = getLevel();
+        if (level == null || level.isClientSide) return;
+        BlockPos pos = getPos();
+        BlockState state = level.getBlockState(pos);
+        if (!state.hasProperty(property) || state.getValue(property) == value) return;
+        // flag 3 = 通知客户端 + 触发邻居更新的常规更新
+        level.setBlock(pos, state.setValue(property, value), Block.UPDATE_ALL);
+    }
+
+    /** 正在工作（覆盖层里的「发光层」按它显示）。 */
+    public void setActiveState(boolean active) {
+        setBlockStateBoolean(MachineBlock.ACTIVE, active);
+    }
+
+    /** 多方块是否成型（覆盖层里的「成型层」按它显示）。 */
+    public void setFormedState(boolean formed) {
+        setBlockStateBoolean(MachineBlock.FORMED, formed);
     }
 
     /** BE 载入世界时调用：转发给所有 trait。 */

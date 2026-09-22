@@ -73,6 +73,11 @@ public final class GuiTextureGenerator {
     private static final int PORT_BODY = 0xFF242424;
     private static final int PORT_BAR = 0xFF8B8B8B;
 
+    /** 三层覆盖层兜底贴图的配色（正面 / 成型 / 发光）。 */
+    private static final int OVERLAY_LINE = 0xC0D0D0D0;
+    private static final int OVERLAY_FORMED_LINE = 0xC0E0B050;
+    private static final int OVERLAY_EMISSIVE_LINE = 0xC0FFE070;
+
     private GuiTextureGenerator() {}
 
     public static void main(String[] args) throws IOException {
@@ -90,6 +95,10 @@ public final class GuiTextureGenerator {
 
         // 方块贴图：仓室「口」的兜底贴图（MachineDefinition.DEFAULT_PORT_TEXTURE = ogmr:block/machine/port_default）
         write(root, "block/machine/port_default.png", port());
+        // 覆盖层兜底贴图（GTM 的 overlay_front / IS_FORMED / overlay_front_emissive 那三个槽）
+        write(root, "block/machine/overlay_front_default.png", overlayFrame(OVERLAY_LINE, 0));
+        write(root, "block/machine/overlay_formed_default.png", overlayFrame(OVERLAY_FORMED_LINE, 3));
+        write(root, "block/machine/overlay_front_emissive_default.png", overlayFrame(OVERLAY_EMISSIVE_LINE, 6));
 
         System.out.println("ogmr: textures written under " + root.getAbsolutePath());
     }
@@ -111,6 +120,23 @@ public final class GuiTextureGenerator {
             line(image, 3, y, 10, true, PORT_BAR);
         }
         rect(image, 0, 0, 16, 16, PORT_FRAME);
+        return image;
+    }
+
+    /**
+     * 覆盖层兜底贴图：一圈半透明描边 + 中间一条横带（带 alpha，用来验证 cutout 渲染层）。
+     *
+     * @param color    描边色（含 alpha）
+     * @param bandY    中间横带的 y 坐标（三层各错开，便于肉眼分辨是哪一层在显示）
+     */
+    private static BufferedImage overlayFrame(int color, int bandY) {
+        int transparent = 0x00000000;
+        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        fill(image, transparent);
+        rect(image, 1, 1, 14, 14, color);
+        for (int y = bandY; y < bandY + 2 && y < 15; y++) {
+            line(image, 4, y, 8, true, color);
+        }
         return image;
     }
 

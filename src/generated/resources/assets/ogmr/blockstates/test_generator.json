@@ -1,7 +1,28 @@
 {
   "variants": {
-    "": {
-      "model": "ogmr:block/test_generator"
+    "active=false,facing=east": {
+      "model": "ogmr:block/test_generator_ov_east"
+    },
+    "active=false,facing=north": {
+      "model": "ogmr:block/test_generator_ov_north"
+    },
+    "active=false,facing=south": {
+      "model": "ogmr:block/test_generator_ov_south"
+    },
+    "active=false,facing=west": {
+      "model": "ogmr:block/test_generator_ov_west"
+    },
+    "active=true,facing=east": {
+      "model": "ogmr:block/test_generator_ov_act_east"
+    },
+    "active=true,facing=north": {
+      "model": "ogmr:block/test_generator_ov_act_north"
+    },
+    "active=true,facing=south": {
+      "model": "ogmr:block/test_generator_ov_act_south"
+    },
+    "active=true,facing=west": {
+      "model": "ogmr:block/test_generator_ov_act_west"
     }
   }
 }

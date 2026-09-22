@@ -134,6 +134,45 @@ public class MachineDefinition implements Supplier<Block> {
     @Getter
     private boolean portCutout = true;
 
+    // ── 覆盖层贴图（照 GTM 的 overlay_front / overlay_front_emissive / IS_FORMED 那套拆的）──
+
+    /**
+     * 正面覆盖层（GTM 的 {@code overlay_front}）—— 画在<b>朝向那一面</b>、底盘之上。
+     *
+     * <p>多用于多方块控制器：底盘是外壳贴图，正面这一层才是「这是一台控制器」的花纹。
+     */
+    @Getter
+    @Nullable
+    private ResourceLocation overlayTexture;
+
+    /**
+     * 正面覆盖层的<b>发光</b>层（GTM 的 {@code overlay_front_emissive}）—— 只在机器
+     * {@code active=true}（正在工作）时画，位置在普通覆盖层之上。
+     */
+    @Getter
+    @Nullable
+    private ResourceLocation emissiveOverlayTexture;
+
+    /**
+     * 成型覆盖层 —— 只在多方块 {@code formed=true} 时画（对应 GTM 模型属性 {@code IS_FORMED}）。
+     *
+     * <p>层序在普通覆盖层之上、发光层之下。
+     */
+    @Getter
+    @Nullable
+    private ResourceLocation formedOverlayTexture;
+
+    /** 覆盖层是否走 {@code cutout} 渲染层（默认 true —— 覆盖层通常带透明像素）。 */
+    @Getter
+    private boolean overlayCutout = true;
+
+    /** 本库自带的兜底覆盖层贴图（纯色描边；作者可以直接换掉）。 */
+    public static final ResourceLocation DEFAULT_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay_front_default");
+    /** 本库自带的兜底「成型」覆盖层贴图。 */
+    public static final ResourceLocation DEFAULT_FORMED_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay_formed_default");
+    /** 本库自带的兜底「发光」覆盖层贴图。 */
+    public static final ResourceLocation DEFAULT_EMISSIVE_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay_front_emissive_default");
+
     /** 本库自带的兜底「口」贴图（纯色描边；作者可以直接换掉）。 */
     public static final ResourceLocation DEFAULT_PORT_TEXTURE = ResourceLocations.ogmr("block/machine/port_default");
 
@@ -326,6 +365,47 @@ public class MachineDefinition implements Supplier<Block> {
     /** 是否有「口」。 */
     public boolean hasPort() {
         return portTexture != null;
+    }
+
+    // ═══════════════ 覆盖层 ═══════════════
+
+    /** 链条版：设置正面覆盖层。 */
+    public MachineDefinition setOverlayTexture(@Nullable ResourceLocation overlayTexture) {
+        this.overlayTexture = overlayTexture;
+        return this;
+    }
+
+    /** 链条版：设置「正在工作」时显示的发光覆盖层。 */
+    public MachineDefinition setEmissiveOverlayTexture(@Nullable ResourceLocation emissiveOverlayTexture) {
+        this.emissiveOverlayTexture = emissiveOverlayTexture;
+        return this;
+    }
+
+    /** 链条版：设置「多方块成型」时显示的覆盖层。 */
+    public MachineDefinition setFormedOverlayTexture(@Nullable ResourceLocation formedOverlayTexture) {
+        this.formedOverlayTexture = formedOverlayTexture;
+        return this;
+    }
+
+    /** 链条版：覆盖层是否走 cutout 渲染层。 */
+    public MachineDefinition setOverlayCutout(boolean overlayCutout) {
+        this.overlayCutout = overlayCutout;
+        return this;
+    }
+
+    /** 是否有任何覆盖层（正面 / 成型 / 发光）。 */
+    public boolean hasOverlay() {
+        return overlayTexture != null || formedOverlayTexture != null || emissiveOverlayTexture != null;
+    }
+
+    /**
+     * 是否有任何「贴在朝向那一面」的额外层（覆盖层或口）。
+     *
+     * <p>数据生成据此决定要不要产出「按朝向挑模型」的 blockstate —— cube_all 是六面同贴图，
+     * 只有这些层才让朝向在视觉上有意义。
+     */
+    public boolean hasFacingLayers() {
+        return hasOverlay() || hasPort();
     }
 
     // ═══════════════ 外观 / 碰撞箱 ═══════════════

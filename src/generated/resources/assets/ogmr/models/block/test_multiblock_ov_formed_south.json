@@ -1,0 +1,76 @@
+{
+  "elements": [
+    {
+      "faces": {
+        "down": {
+          "texture": "#all"
+        },
+        "east": {
+          "texture": "#all"
+        },
+        "north": {
+          "texture": "#all"
+        },
+        "south": {
+          "texture": "#all"
+        },
+        "up": {
+          "texture": "#all"
+        },
+        "west": {
+          "texture": "#all"
+        }
+      },
+      "from": [
+        0.003,
+        0.003,
+        0.003
+      ],
+      "to": [
+        15.997,
+        15.997,
+        15.997
+      ]
+    },
+    {
+      "faces": {
+        "south": {
+          "texture": "#overlay"
+        }
+      },
+      "from": [
+        0,
+        0,
+        15.997
+      ],
+      "to": [
+        16,
+        16,
+        15.998
+      ]
+    },
+    {
+      "faces": {
+        "south": {
+          "texture": "#overlay_formed"
+        }
+      },
+      "from": [
+        0,
+        0,
+        15.997999
+      ],
+      "to": [
+        16,
+        16,
+        15.999
+      ]
+    }
+  ],
+  "render_type": "minecraft:cutout",
+  "textures": {
+    "all": "minecraft:block/iron_block",
+    "overlay": "ogmr:block/machine/overlay_front_default",
+    "overlay_formed": "ogmr:block/machine/overlay_formed_default"
+  }
+}

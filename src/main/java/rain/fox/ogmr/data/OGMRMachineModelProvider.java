@@ -1,6 +1,7 @@
 package rain.fox.ogmr.data;
 
 import rain.fox.ogmr.Ogmr;
+import rain.fox.ogmr.api.block.MachineBlock;
 import rain.fox.ogmr.api.machine.MachineDefinition;
 import rain.fox.ogmr.api.machine.RotationState;
 import rain.fox.ogmr.api.registry.OGMRRegistries;
@@ -18,6 +19,9 @@ import net.minecraftforge.client.model.generators.BlockStateProvider;
 import net.minecraftforge.common.data.ExistingFileHelper;
 
 import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 机器/仓室方块的<b>模型与方块状态数据生成器</b> —— 把 addon 从「每个机器手写三个 JSON」里解放出来。
@@ -78,96 +82,162 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
             ResourceLocation texture = definition.getModelTexture() != null
                     ? definition.getModelTexture()
                     : fallbackTexture;
-            BlockModelBuilder model = models().cubeAll(id.getPath(), texture);
-            if (definition.hasPort()) {
-                // 有「口」的机器：blockstate 按朝向挑模型（口只画在朝向那一面）。
-                // ⚠️ 不能再走 simpleBlock —— 那会写一条 catch-all 变体，和「按朝向」的变体重叠，
+            BlockModelBuilder baseModel = models().cubeAll(id.getPath(), texture);
+            if (definition.hasFacingLayers()) {
+                // 有「贴在朝向那一面」的层（覆盖层 / 成型层 / 发光层 / 口）：
+                // blockstate 要按朝向（以及成型、工作状态）挑模型。
+                // ⚠️ 不能再走 simpleBlock —— 那会写一条 catch-all 变体，和这些变体重叠，
                 //    Forge 会直接抛 "Cannot set models for a state for which a partial match has already been"。
-                registerPortVariants(definition, block, texture);
+                registerLayeredVariants(definition, block, texture);
             } else {
                 // blockstates/<name>.json + models/block/<name>.json（catch-all：所有状态同一个模型）
-                simpleBlock(block, model);
+                simpleBlock(block, baseModel);
             }
             // models/item/<name>.json（物品栏里显示的模型）—— 1.20.1 的 simpleBlock 不会自动带，
             // 得显式补一次，否则机器物品在物品栏里是紫黑块。物品一律用「底盘」那个模型。
-            simpleBlockItem(block, model);
+            simpleBlockItem(block, baseModel);
             count++;
         }
         Ogmr.LOGGER.info("ogmr: generated block models for {} machine(s) of '{}'", count, modId);
     }
 
-    /** 口离方块表面的外凸量（格）—— 小到看不见厚度，但足以在深度测试里赢过底盘那一面。 */
-    private static final float PORT_OFFSET = 0.002f;
+    /** 相邻两层之间的外凸步长（格）—— 小到看不见厚度，但足以让深度测试分出先后。 */
+    private static final float LAYER_STEP = 0.001f;
 
     /**
-     * 给有「口」的机器产出「按朝向挑模型」的 blockstate。
+     * 给「有贴在朝向那一面的层」的机器产出按状态挑模型的 blockstate。
      *
      * <p>
-     * 每个允许的朝向各生成一份自包含模型 {@code models/block/<name>_port_<dir>.json}：
-     * 底盘整块 + 一块只在那一面有贴图的薄片（比 16 凸出 {@link #PORT_OFFSET} → 口永远在最上层）。
-     * 覆盖掉 {@link #simpleBlock} 刚写的 catch-all 变体（同一份 blockstate JSON，后者胜）。
+     * 层序（从下到上）：底盘 → 正面覆盖层 → 成型层（{@code formed=true} 才画）→
+     * 发光层（{@code active=true} 才画）→ 口（永远最上层）。
+     * 每层都是<b>一块只在那一面有贴图的薄片</b>，朝外那一个 face 才定义，其余 5 面不写 = 不渲染。
      *
-     * <p>变体键只写 {@code facing=...}：{@code active}/{@code formed} 不写就是通配符（原版语义），
-     * 于是 4（或 6）条变体就覆盖了全部状态组合。
+     * <p>
+     * 变体键只写「真的会改变模型」的属性：有发光层才写 {@code active}、有成型层才写 {@code formed}
+     * —— 原版语义里没写到的属性是通配符，所以既能覆盖全部状态组合，又不会凭空多出一堆变体。
+     * 每一条变体都是<b>完全指定</b>它写了的那几个属性，所以彼此不重叠（Forge 不允许重叠）。
      */
-    private void registerPortVariants(MachineDefinition definition, Block block, ResourceLocation baseTexture) {
+    private void registerLayeredVariants(MachineDefinition definition, Block block, ResourceLocation baseTexture) {
         RotationState rotation = definition.getRotationState();
         if (!rotation.hasFacing()) {
-            Ogmr.LOGGER.warn("ogmr: {} 声明了口，但朝向设定是 NONE —— 口的朝向表达不出来",
+            Ogmr.LOGGER.warn("ogmr: {} 声明了覆盖层/口，但朝向设定是 NONE —— 这些东西画在哪一面表达不出来",
                     ResourceLocations.pathOf(definition.getId()));
             return;
         }
-        ResourceLocation portTexture = definition.getPortTexture();
+        boolean usesActive = definition.getEmissiveOverlayTexture() != null;
+        boolean usesFormed = definition.getFormedOverlayTexture() != null;
         DirectionProperty property = rotation.getProperty();
 
         var variants = getVariantBuilder(block);
         for (Direction direction : Direction.values()) {
             if (!rotation.test(direction)) continue;
-            BlockModelBuilder model = portModel(definition, direction, baseTexture, portTexture);
-            variants.partialState().with(property, direction)
-                    .modelForState().modelFile(model).addModel();
+            for (int activeIndex = 0; activeIndex < (usesActive ? 2 : 1); activeIndex++) {
+                boolean active = activeIndex == 1;
+                for (int formedIndex = 0; formedIndex < (usesFormed ? 2 : 1); formedIndex++) {
+                    boolean formed = formedIndex == 1;
+                    BlockModelBuilder model = layeredModel(definition, direction, baseTexture, active, formed);
+
+                    var partial = variants.partialState().with(property, direction);
+                    if (usesActive) partial = partial.with(MachineBlock.ACTIVE, active);
+                    if (usesFormed) partial = partial.with(MachineBlock.FORMED, formed);
+                    partial.modelForState().modelFile(model).addModel();
+                }
+            }
         }
     }
 
     /**
-     * 造一份「底盘 + 口」的模型。
+     * 造一份「底盘 + 贴在朝向那一面的若干层」的模型。
      *
      * <p>
-     * ⚠️ 不能写成 {@code cubeAll(...).element()...}：MC 的模型继承里<b>子模型一旦自带 elements，
-     * 父模型的 elements 会被整个替换</b>，那样底盘就没了。所以两份元素都自己写。
+     * ⚠️ 两个硬约束决定了这里的做法：
+     * <ol>
+     * <li>MC 的模型继承里<b>子模型一旦自带 elements，父模型的 elements 会被整个替换</b>，
+     * 所以底盘和每一层都自己写元素，不能用 {@code cubeAll(...).element()...}；</li>
+     * <li>元素的坐标必须在 {@code [-16, 32]} 之内 —— 所以「往外凸一点点」这种做法在朝下/朝北/朝西
+     * 三面会直接越界报 {@code Position out of range}。这里改成<b>把底盘整体缩进</b>
+     * （{@code LAYER_STEP * (层数 + 1)}，最多 0.005 格，肉眼看不出来），层则依次向外排到方块表面为止。</li>
+     * </ol>
+     *
+     * <p>层序（下 → 上）：正面覆盖层 → 成型层 → 发光层 → 口；后画的层更靠外，于是能盖住前面的层
+     * （覆盖层是 cutout 的，透明像素被丢弃，所以下面的层在没画东西的地方依然看得见）。
      */
-    private BlockModelBuilder portModel(MachineDefinition definition, Direction portSide,
-                                        ResourceLocation baseTexture, ResourceLocation portTexture) {
-        String name = "%s_port_%s".formatted(definition.getId().getPath(), portSide.getName());
-        BlockModelBuilder model = models().getBuilder(name)
-                .texture("all", baseTexture)
-                .texture("port", portTexture);
-        if (definition.isPortCutout()) {
+    private BlockModelBuilder layeredModel(MachineDefinition definition, Direction facing,
+                                           ResourceLocation baseTexture, boolean active, boolean formed) {
+        List<Layer> layers = new ArrayList<>();
+        if (definition.getOverlayTexture() != null) {
+            layers.add(new Layer("ov", "overlay", definition.getOverlayTexture()));
+        }
+        if (formed && definition.getFormedOverlayTexture() != null) {
+            layers.add(new Layer("formed", "overlay_formed", definition.getFormedOverlayTexture()));
+        }
+        if (active && definition.getEmissiveOverlayTexture() != null) {
+            layers.add(new Layer("act", "overlay_active", definition.getEmissiveOverlayTexture()));
+        }
+        if (definition.hasPort()) {
+            layers.add(new Layer("port", "port", definition.getPortTexture()));
+        }
+
+        StringBuilder name = new StringBuilder(definition.getId().getPath());
+        for (Layer layer : layers) {
+            name.append('_').append(layer.namePart());
+        }
+        name.append('_').append(facing.getName());
+
+        BlockModelBuilder model = models().getBuilder(name.toString()).texture("all", baseTexture);
+        if (definition.isPortCutout() || definition.isOverlayCutout()) {
+            // 覆盖层/口通常带透明像素，走 cutout 才不会把底下的底盘糊掉
             model.renderType("cutout");
         }
 
-        // ① 底盘：整块，六面同一个贴图
+        // ⓪ 底盘：整块，六面同一个贴图；整体缩进一点，给各层让出深度空间
+        float shrink = LAYER_STEP * (layers.size() + 1);
         model.element()
-                .from(0, 0, 0)
-                .to(16, 16, 16)
+                .from(shrink, shrink, shrink)
+                .to(16f - shrink, 16f - shrink, 16f - shrink)
                 .allFaces((dir, face) -> face.texture("#all"))
                 .end();
 
-        // ② 口：贴在朝向那一面的薄片，只定义朝外那一个面（其余 5 面不写 = 不渲染 → 「只渲染这一面」）
-        float min = 16f - PORT_OFFSET;
-        float max = 16f + PORT_OFFSET;
-        var port = model.element();
-        switch (portSide) {
-            case DOWN -> port.from(0, -PORT_OFFSET, 0).to(16, PORT_OFFSET, 16);
-            case UP -> port.from(0, min, 0).to(16, max, 16);
-            case NORTH -> port.from(0, 0, -PORT_OFFSET).to(16, 16, PORT_OFFSET);
-            case SOUTH -> port.from(0, 0, min).to(16, 16, max);
-            case WEST -> port.from(-PORT_OFFSET, 0, 0).to(PORT_OFFSET, 16, 16);
-            case EAST -> port.from(min, 0, 0).to(max, 16, 16);
+        // ①…各层：最上面那层贴着方块表面，往下每一层依次缩进 LAYER_STEP
+        for (int i = 0; i < layers.size(); i++) {
+            float plane = 16f - LAYER_STEP * (layers.size() - i);
+            addFaceLayer(model, facing, layers.get(i).textureKey(), layers.get(i).texture(), plane);
         }
-        port.face(portSide).texture("#port").end().end();
-
         return model;
+    }
+
+    /**
+     * 模型里的一层。
+     *
+     * @param namePart   文件名里的短标签（{@code ov} / {@code formed} / {@code act} / {@code port}）
+     * @param textureKey 模型里的纹理键（{@code overlay} / {@code overlay_formed} / …）
+     * @param texture    贴图
+     */
+    private record Layer(String namePart, String textureKey, ResourceLocation texture) {}
+
+    /**
+     * 往模型里加一层「只在这一面有贴图的薄片」。
+     *
+     * <p>薄片只定义朝外那一个 face，其余 5 面不写 = 不渲染 —— 这就是「只渲染这一面」。
+     * {@code plane} 是它离方块中心的距离（永远取正值，朝负方向的面取负号即可）。
+     *
+     * <p>⚠️ {@code face.texture(...)} 收的是<b>引用</b>（要带 {@code #}），传裸键会被当成贴图路径，
+     * 生成出 {@code "texture": "minecraft:overlay"} 这种坏引用（游戏里就是缺失贴图）。
+     */
+    private static void addFaceLayer(BlockModelBuilder model, Direction side, String textureKey,
+                                     ResourceLocation texture, float plane) {
+        model.texture(textureKey, texture);
+        float inner = plane - LAYER_STEP;
+        var element = model.element();
+        switch (side) {
+            case UP -> element.from(0, inner, 0).to(16, plane, 16);
+            case DOWN -> element.from(0, -plane, 0).to(16, -inner, 16);
+            case SOUTH -> element.from(0, 0, inner).to(16, 16, plane);
+            case NORTH -> element.from(0, 0, -plane).to(16, 16, -inner);
+            case EAST -> element.from(inner, 0, 0).to(plane, 16, 16);
+            case WEST -> element.from(-plane, 0, 0).to(-inner, 16, 16);
+        }
+        element.face(side).texture("#" + textureKey).end().end();
     }
 
     /**

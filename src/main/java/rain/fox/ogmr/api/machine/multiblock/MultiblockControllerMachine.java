@@ -265,6 +265,8 @@ public class MultiblockControllerMachine extends MetaMachine implements IMultiCo
      */
     public void onStructureFormed() {
         formed = true;
+        // 成型状态写进方块状态：覆盖层里的「成型层」（formed=true 才画）按它选模型
+        setFormedState(true);
         parts.clear();
         MultiblockState state = multiblockState;
         if (state != null) {
@@ -284,6 +286,7 @@ public class MultiblockControllerMachine extends MetaMachine implements IMultiCo
      */
     public void onStructureInvalid() {
         formed = false;
+        setFormedState(false);
         for (IMultiPart part : new ArrayList<>(parts)) {
             part.removedFromController(this);
         }

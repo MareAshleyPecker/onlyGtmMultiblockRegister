@@ -235,6 +235,9 @@ public class RecipeLogic implements IManaged, ITagSerializable<CompoundTag> {
             waitingReason = null;
             runDelay = 0;
         }
+        // 把「正在工作」写进方块状态：覆盖层里的发光层（active=true 才画）就是按它选模型的。
+        // 只在值真的变了的时候才刷方块（MetaMachine 里判过），所以这里每 tick 调也安全。
+        machine.setActiveState(status.isWorking());
         updateTickSubscription();
         machine.onChanged();
     }

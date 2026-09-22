@@ -576,11 +576,61 @@ models/item/<name>.json                 ← 物品栏仍用「底盘」模型（
 贴图由作者自己给：`.port(你自己的贴图)`。不写参数就是本库自带的兜底贴图
 （`MachineDefinition.DEFAULT_PORT_TEXTURE`，一张深色描边的「开口」图，随时可换）。
 
-### 13.3 已知边界
+### 13.3 覆盖层贴图（照 GTM 的 overlay 那套拆的）
 
-- 口固定在**朝向那一面**（不再单独开第二个属性）—— 想让口在别的面，就改朝向；
-- `RotationState.NONE` + `.port()` 会打一条 warn 并跳过口的模型（没有朝向就表达不出口在哪一面）；
-- 物品模型与 JEI 预览都用底盘模型，所以预览里看不到口（进世界才看得到）。
+机器（尤其多方块控制器）的贴图不止「一层外壳」。注册时可以给三类覆盖层，全都贴在**朝向那一面**：
+
+| 链式方法 | GTM 对应 | 什么时候显示 | 层序 |
+|---|---|---|---|
+| `.overlay(贴图)` / `.overlay()` | `overlay_front` | 总是 | 1（最下） |
+| `.formedOverlay(贴图)` / `.formedOverlay()` | 模型属性 `IS_FORMED` 用的 overlay | `formed=true` 时 | 2 |
+| `.emissiveOverlay(贴图)` / `.emissiveOverlay()` | `overlay_front_emissive` | `active=true`（正在工作）时 | 3 |
+| `.port(...)` | 仓室的「口」 | 总是 | 4（最上） |
+
+```java
+REGISTRAR.multiblock("large_foundry", LargeFoundryMachine::new)
+        .tier(OGMRValues.HV)
+        .recipeType(MyRecipeTypes.FOUNDRY)
+        .appearanceBlock(() -> CASING)
+        .modelTexture(CASING_TEXTURE)   // 底盘（六面）
+        .overlay(CONTROLLER_OVERLAY)    // 正面花纹
+        .formedOverlay()                // 成型后才出现的层
+        .emissiveOverlay()              // 跑配方时亮起来的那层
+        .pattern(...)
+        .register();
+```
+
+- 数据生成会把**朝向 × 成型 × 工作**的组合都产出来：例如
+  `models/block/<name>_ov_formed_act_east.json` = 底盘 + 正面层 + 成型层 + 发光层（东向）。
+  `blockstates/<name>.json` 里对应的变体键是 `facing=east,active=true,formed=true`。
+  用不到的属性不会出现在变体键里（原版语义：没写 = 通配符），所以变体数不会白白膨胀。
+- 覆盖层默认走 `minecraft:cutout` 渲染层（`render_type`），这样带透明像素的贴图不会把底盘糊掉；
+  全不透明的贴图可以 `.overlayCutout(false)` / `.portCutout(false)` 关掉。
+- 层与层之间靠「底盘整体缩进 + 每层依次靠外」实现前后关系：
+  MC 要求模型元素坐标在 `[-16, 32]`，所以**不能**用「往外凸一点」的常规做法（朝下/朝北/朝西会直接越界报
+  `Position out of range`）。缩进量是 `0.001 × (层数+1)`，肉眼看不出来。
+- ⚠️ 模型里 {`face.texture(...)`} 收的是**引用**，必须带 `#`（`#overlay` 而不是 `overlay`）——
+  少了 `#` 会生成 `"texture": "minecraft:overlay"`，游戏里就是缺失贴图。
+
+### 13.4 成型 / 工作状态真的会写进方块状态
+
+覆盖层靠方块状态选模型，所以这两个状态必须真的被写下去（以前是 TODO，现在接好了）：
+
+| 状态 | 谁写 | 时机 |
+|---|---|---|
+| `formed` | `MultiblockControllerMachine#onStructureFormed/Invalid` | 结构成型 / 失效 |
+| `active` | `RecipeLogic#setStatus` | 配方状态变化（{@code WORKING} 为真） |
+
+两者都走 `MetaMachine#setBlockStateBoolean(...)`（值没变就不刷方块，所以每 tick 调也安全）。
+
+### 13.5 已知边界
+
+- 口与覆盖层都固定在**朝向那一面**（不再单独开第二个属性）—— 想让它们换面，就改朝向；
+- `RotationState.NONE` + 覆盖层/口会打一条 warn 并跳过这些模型（没有朝向就表达不出画在哪一面）；
+- 物品模型与 JEI 预览都用底盘模型，所以预览里看不到覆盖层与口（进世界才看得到）；
+- 发光层是「静态贴图换层」，不是真正的全亮渲染（静态模型做不到 fullbright，要那种效果得自己注册 BER
+  再 `.entityRenderer(true)`）。
+
 
 
 ---

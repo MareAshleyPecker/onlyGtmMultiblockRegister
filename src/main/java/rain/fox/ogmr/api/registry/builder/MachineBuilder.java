@@ -98,6 +98,12 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
     protected ResourceLocation portTexture;
     /** 口是否走 cutout 渲染层（有 alpha 的贴图必须开）。 */
     protected boolean portCutout = true;
+    /** 正面覆盖层 / 成型覆盖层 / 发光覆盖层（照 GTM 的 overlay_front / IS_FORMED / overlay_front_emissive）。 */
+    protected ResourceLocation overlayTexture;
+    protected ResourceLocation formedOverlayTexture;
+    protected ResourceLocation emissiveOverlayTexture;
+    /** 覆盖层是否走 cutout 渲染层。 */
+    protected boolean overlayCutout = true;
     /** 英文显示名；null = datagen 时按 id 自动推导。 */
     protected String langValue;
     /** 中文显示名；null = 中文语言文件里回退成英文。 */
@@ -290,6 +296,62 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
     }
 
     /**
+     * 加一层<b>正面覆盖层</b>（GTM 的 {@code overlay_front}）—— 画在朝向那一面、底盘之上。
+     *
+     * <p>多方块控制器的典型用法：底盘用外壳贴图（{@code .modelTexture(...)}），
+     * 正面盖一层控制器花纹。不传贴图就用库自带的兜底贴图。
+     */
+    public B overlay(ResourceLocation overlayTexture) {
+        this.overlayTexture = overlayTexture != null ? overlayTexture : MachineDefinition.DEFAULT_OVERLAY_TEXTURE;
+        return self();
+    }
+
+    /** 用本库自带的兜底贴图加一层正面覆盖层。 */
+    public B overlay() {
+        return overlay(MachineDefinition.DEFAULT_OVERLAY_TEXTURE);
+    }
+
+    /**
+     * 加一层<b>成型覆盖层</b> —— 只在多方块 {@code formed=true} 时出现（GTM 的 {@code IS_FORMED}）。
+     *
+     * <p>⚠️ 要让它在游戏里真出现，成型状态得真的写进方块状态：
+     * {@code MultiblockControllerMachine} 已经接好了（成型/失效时写 {@code MachineBlock.FORMED}）。
+     */
+    public B formedOverlay(ResourceLocation formedOverlayTexture) {
+        this.formedOverlayTexture = formedOverlayTexture != null ? formedOverlayTexture
+                : MachineDefinition.DEFAULT_FORMED_OVERLAY_TEXTURE;
+        return self();
+    }
+
+    /** 用本库自带的兜底贴图加一层成型覆盖层。 */
+    public B formedOverlay() {
+        return formedOverlay(MachineDefinition.DEFAULT_FORMED_OVERLAY_TEXTURE);
+    }
+
+    /**
+     * 加一层<b>发光覆盖层</b>（GTM 的 {@code overlay_front_emissive}）—— 只在机器
+     * {@code active=true}（正在工作）时出现，位置在普通覆盖层之上。
+     *
+     * <p>⚠️ 同样要求工作状态真的写进方块状态：{@code RecipeLogic#setStatus} 已经接好了。
+     */
+    public B emissiveOverlay(ResourceLocation emissiveOverlayTexture) {
+        this.emissiveOverlayTexture = emissiveOverlayTexture != null ? emissiveOverlayTexture
+                : MachineDefinition.DEFAULT_EMISSIVE_OVERLAY_TEXTURE;
+        return self();
+    }
+
+    /** 用本库自带的兜底贴图加一层发光覆盖层。 */
+    public B emissiveOverlay() {
+        return emissiveOverlay(MachineDefinition.DEFAULT_EMISSIVE_OVERLAY_TEXTURE);
+    }
+
+    /** 覆盖层是否走 {@code cutout} 渲染层（默认 true）。 */
+    public B overlayCutout(boolean overlayCutout) {
+        this.overlayCutout = overlayCutout;
+        return self();
+    }
+
+    /**
      * 指定中英显示名 —— 一个机器名同时管住 {@code en_us} 与 {@code zh_cn}。
      *
      * <p>
@@ -333,7 +395,11 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
         definition.setDefaultPaintingColor(defaultPaintingColor);
         definition.setRotationState(rotationState);
         definition.setPortCutout(portCutout);
+        definition.setOverlayCutout(overlayCutout);
         if (portTexture != null) definition.setPortTexture(portTexture);
+        if (overlayTexture != null) definition.setOverlayTexture(overlayTexture);
+        if (formedOverlayTexture != null) definition.setFormedOverlayTexture(formedOverlayTexture);
+        if (emissiveOverlayTexture != null) definition.setEmissiveOverlayTexture(emissiveOverlayTexture);
 
         // 方块 / 物品 / 方块实体
         // ⚠️ 「当前正在构造的定义」必须在**真正 new 方块的那一刻**标好，而不是在这里标一下就好：
