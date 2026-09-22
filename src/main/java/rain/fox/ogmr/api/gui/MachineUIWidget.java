@@ -9,6 +9,7 @@ import com.lowdragmc.lowdraglib.gui.widget.ProgressWidget;
 import com.lowdragmc.lowdraglib.gui.widget.Widget;
 import com.lowdragmc.lowdraglib.gui.widget.WidgetGroup;
 import com.lowdragmc.lowdraglib.gui.widget.custom.PlayerInventoryWidget;
+import com.lowdragmc.lowdraglib.utils.Position;
 
 import lombok.Getter;
 
@@ -66,6 +67,8 @@ public class MachineUIWidget extends WidgetGroup {
     protected int infoPanelOffsetX = 4;
     protected int infoPanelOffsetY = 4;
     protected int infoPanelWidth = 90;
+    /** 信息栏高度 —— 太少会把 {@code addDisplayText} 的末尾几行裁掉，所以给足。 */
+    protected int infoPanelHeight = 120;
     protected boolean infoPanelVisible = true;
 
     public MachineUIWidget(MetaMachine machine, MachineUI ui) {
@@ -100,6 +103,9 @@ public class MachineUIWidget extends WidgetGroup {
                     this::collectDisplayText)
                     .setMaxWidthLimit(infoPanelWidth);
             this.infoPanel.setId(MachineUI.ID_INFO);
+            // 半透明底板：信息栏贴在面板外面、直接压在世界画面上，没有底板时字会看不清
+            this.infoPanel.setBackground(GuiTextures.infoBackground());
+            this.infoPanel.setSize(infoPanelWidth, infoPanelHeight);
             addWidget(this.infoPanel);
         } else {
             this.infoPanel = null;
@@ -117,7 +123,7 @@ public class MachineUIWidget extends WidgetGroup {
 
     /** 含信息栏（或面板本身）在内的完整高度。 */
     public int getFullHeight() {
-        return Math.max(getSizeHeight(), infoPanel != null ? infoPanelOffsetY + 60 : 0);
+        return Math.max(getSizeHeight(), infoPanel != null ? infoPanelOffsetY + infoPanelHeight : 0);
     }
 
     @Override
@@ -155,15 +161,15 @@ public class MachineUIWidget extends WidgetGroup {
         machine.addDisplayText(textList);
     }
 
-    /** 调整信息栏的位置与最大宽度。 */
+    /** 调整信息栏的位置与最大宽度（{@code maxHeight} 用 {@code <= 0} 表示保持原值）。 */
     public MachineUIWidget setInfoPanelLayout(int offsetX, int offsetY, int maxWidth) {
         this.infoPanelOffsetX = offsetX;
         this.infoPanelOffsetY = offsetY;
         this.infoPanelWidth = maxWidth;
         if (infoPanel != null) {
-            infoPanel.setSelfPosition(new com.lowdragmc.lowdraglib.utils.Position(
-                    getSizeWidth() + offsetX, offsetY));
+            infoPanel.setSelfPosition(new Position(getSizeWidth() + offsetX, offsetY));
             infoPanel.setMaxWidthLimit(maxWidth);
+            infoPanel.setSize(maxWidth, infoPanelHeight);
         }
         return this;
     }

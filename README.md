@@ -509,6 +509,22 @@ REGISTRAR.part("lv_item_bus", ItemBusPartMachine::new)
 - 默认的右侧信息栏贴在面板外，`ModularUI` 的尺寸会自动加上它（`MachineUIWidget#getFullWidth()`），
   不想显示就 `setInfoPanelVisible(false)`。
 
+### 11.3 界面贴图从哪来
+
+库自带 8 张「纯色 + 描边」的九宫格贴图（`assets/ogmr/textures/gui/**`），所以默认面板不含任何
+紫黑缺失贴图 —— 这也是踩过的坑：`GuiTextures` 里的 `ResourceTexture` 指向的 png 不随库发布时，
+面板背景会整块变成缺失贴图（一半品红一半黑）。
+
+- 生成器：`tools/GuiTextureGenerator.java`（JDK 17 直接跑单文件源码）
+
+  ```bash
+  java tools/GuiTextureGenerator.java          # 默认写到 src/main/resources/assets/ogmr/textures/gui
+  ```
+
+  改配色就改生成器顶部的常量再跑一次；尺寸/切片宽度必须和 `GuiTextures` 的声明一致。
+- 想完全不依赖这些 png（例如全部换用自己的美术），客户端初始化时调一次
+  `GuiTextures.setForceFallback(true)`，所有访问器会改用「纯色铺底 + 描边」的代码贴图。
+
 ---
 
 ## 12. 加一种自己的配方内容（`IContentKind`）
