@@ -69,8 +69,8 @@
   ],
   "render_type": "minecraft:cutout",
   "textures": {
-    "all": "minecraft:block/iron_block",
-    "overlay": "ogmr:block/machine/overlay_front_default",
-    "overlay_formed": "ogmr:block/machine/overlay_formed_default"
+    "all": "ogmr:block/casings/solid/machine_casing_solid_steel",
+    "overlay": "ogmr:block/machine/overlay/front",
+    "overlay_formed": "ogmr:block/machine/overlay/front_active"
   }
 }

@@ -83,13 +83,8 @@ public final class TestRegistrations {
             .register(Ogmr.id("test_generator_recipes"), "ogmr_test")
             .energyIO(IO.OUT);
 
-    /** 外壳方块（用原版铁块，省得再造一套方块与贴图）。 */
+    /** 外壳方块（结构图案用的实心块，外观无所谓，测试机的外壳贴图走 {@link TestTextures}）。 */
     public static final Block CASING = Blocks.IRON_BLOCK;
-
-    /** 模型贴图的快捷写法：直接借用原版方块贴图（测试机不配美术资源）。 */
-    private static ResourceLocation vanillaTexture(String block) {
-        return ResourceLocations.of("minecraft", "block/" + block);
-    }
 
     /** 3×3×3 多线程测试机（用电器）。 */
     public static MultiblockMachineDefinition TEST_MULTIBLOCK;
@@ -166,8 +161,8 @@ public final class TestRegistrations {
                 .tooltips(Component.translatable("block.ogmr.lv_item_input_bus.tooltip"))
                 .langValue("Test Item Input Bus", "测试物品输入总线")
                 // 「口」：只画在朝向那一面，摆放时对着玩家（仓室默认六向，地板/天花板上也对得上）
-                .port()
-                .modelTexture(vanillaTexture("iron_block"))
+                .port(TestTextures.PORT_ITEM_IN)
+                .modelTexture(TestTextures.CASING_STEEL)
                 .register();
 
         ITEM_OUTPUT_BUS = REGISTRAR
@@ -176,8 +171,8 @@ public final class TestRegistrations {
                 .abilities(PartAbility.EXPORT_ITEMS)
                 .tooltips(Component.translatable("block.ogmr.lv_item_output_bus.tooltip"))
                 .langValue("Test Item Output Bus", "测试物品输出总线")
-                .port()
-                .modelTexture(vanillaTexture("iron_block"))
+                .port(TestTextures.PORT_ITEM_OUT)
+                .modelTexture(TestTextures.CASING_STEEL)
                 .register();
 
         // ── 能源仓（两个都想验单位换算：输入仓按 EU 显示，输出仓按 RF 显示） ──
@@ -187,8 +182,10 @@ public final class TestRegistrations {
                 .tier(OGMRValues.LV)
                 .abilities(PartAbility.INPUT_ENERGY)
                 .langValue("Test Energy Input Hatch (EU display)", "测试能源输入仓（按 EU 显示）")
-                .port()
-                .modelTexture(vanillaTexture("copper_block"))
+                // 能源仓的口自带发光件：有电在流动时（active=true）亮起来
+                .port(TestTextures.PORT_ENERGY_IN)
+                .emissiveOverlay(TestTextures.PORT_ENERGY_IN_EMISSIVE)
+                .modelTexture(TestTextures.CASING_STEEL)
                 .register();
 
         ENERGY_OUTPUT_HATCH = REGISTRAR
@@ -197,8 +194,9 @@ public final class TestRegistrations {
                 .tier(OGMRValues.LV)
                 .abilities(PartAbility.OUTPUT_ENERGY)
                 .langValue("Test Energy Output Hatch (RF display)", "测试能源输出仓（按 RF 显示）")
-                .port()
-                .modelTexture(vanillaTexture("copper_block"))
+                .port(TestTextures.PORT_ENERGY_OUT)
+                .emissiveOverlay(TestTextures.PORT_ENERGY_OUT_EMISSIVE)
+                .modelTexture(TestTextures.CASING_STEEL)
                 .register();
 
         // ── 线程仓 ──
@@ -225,9 +223,9 @@ public final class TestRegistrations {
                 .langValue("Test Multiblock (threaded)", "测试多方块（多线程）")
                 // 正面覆盖层 + 成型层 + 工作时的发光层（照 GTM 的 overlay_front / IS_FORMED /
                 // overlay_front_emissive 那三个槽）。成型层只在结构成型后出现，发光层只在跑配方时出现。
-                .overlay()
-                .formedOverlay()
-                .emissiveOverlay()
+                .overlay(TestTextures.CONTROLLER_FRONT)
+                .formedOverlay(TestTextures.CONTROLLER_FRONT_ACTIVE)
+                .emissiveOverlay(TestTextures.CONTROLLER_FRONT_ACTIVE_EMISSIVE)
                 // 显式界面：标题 + 进度条 + 线程状态文本（演示「addon 自己配 UI」这条通道；
                 // 不写这行的话 builder 会给一个零配置界面 —— 标题 + 背包 + 按仓储自动摆的槽位）
                 .ui(MachineUI.create("test_multiblock", Ogmr.id("test_multiblock"))
@@ -240,7 +238,7 @@ public final class TestRegistrations {
                                 ? Component.translatable("ogmr.test.ui.threads", multi.getMaxThreads())
                                 : Component.empty())
                         .playerInventory(8, 84))
-                .modelTexture(vanillaTexture("iron_block"))
+                .modelTexture(TestTextures.CASING_STEEL)
                 .register();
 
         // ── 测试发电机：结构一模一样，只有配方类型的能量方向不同 ──
@@ -254,9 +252,9 @@ public final class TestRegistrations {
                 .appearanceBlock(() -> CASING)
                 .tooltips(Component.translatable("block.ogmr.test_generator.tooltip"))
                 .langValue("Test Generator (energy out)", "测试发电机（产能）")
-                .overlay()
-                .emissiveOverlay()
-                .modelTexture(vanillaTexture("gold_block"))
+                .overlay(TestTextures.CONTROLLER_FRONT)
+                .emissiveOverlay(TestTextures.CONTROLLER_FRONT_ACTIVE_EMISSIVE)
+                .modelTexture(TestTextures.CASING_HEATPROOF)
                 .pattern(TestRegistrations::testPattern)
                 .register();
     }

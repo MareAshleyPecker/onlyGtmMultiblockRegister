@@ -524,13 +524,14 @@ REGISTRAR.part("lv_item_bus", ItemBusPartMachine::new)
   改配色就改生成器顶部的常量再跑一次；尺寸/切片宽度必须和 `GuiTextures` 的声明一致。
 - 想完全不依赖这些 png（例如全部换用自己的美术），客户端初始化时调一次
   `GuiTextures.setForceFallback(true)`，所有访问器会改用「纯色铺底 + 描边」的代码贴图。
-- 生成器顺带产出仓室「口」的兜底贴图 `assets/ogmr/textures/block/machine/port_default.png`（见 §13）。
+- **方块贴图**（仓室的口、覆盖层、外壳）不在这里生成 —— 那些是从 GTM 搬来的美术资源，
+  见 §14「贴图来源与许可」。
 
 ---
 
-## 13. 仓室的朝向与「口」（port facing）
+## 12. 仓室的朝向与「口」（port facing）
 
-### 13.1 朝向设定 `RotationState`
+### 12.1 朝向设定 `RotationState`
 
 | 值 | 方块状态属性 | 谁在用 |
 |---|---|---|
@@ -558,25 +559,25 @@ REGISTRAR.part("lv_item_input_bus", ItemBusPartMachine::new)
 > // state.getValue(MachineBlock.FACING)                        // ❌ 对六向仓室抛 IllegalArgumentException
 > ```
 
-### 13.2 「口」怎么渲染：只画这一面，且在最上层
+### 12.2 「口」怎么渲染：只画这一面，且在最上层
 
 `gradlew runData` 会给有口的机器产出（每台 4 或 6 份）：
 
 ```
-models/block/<name>_port_<方向>.json    ← 底盘整块 + 只在那一面有贴图的薄片（比 16 凸出 0.002）
+models/block/<name>_port_<方向>.json    ← 底盘整块 + 只在那一面有贴图的薄片
 blockstates/<name>.json                 ← "facing=north" → 上面那份模型，逐朝向挑
 models/item/<name>.json                 ← 物品栏仍用「底盘」模型（不带口）
 ```
 
 - **只这一面**：口的薄片**只定义朝外那一个 face**，其余 5 面不写 = 不渲染；
-- **最上层**：薄片几何上比方块表面凸出 `0.002` 格，深度测试必胜，永远盖在底盘之上；
+- **最上层**：底盘整体缩进 `0.001×(层数+1)`、各层依次往外排到方块表面，所以后画的层永远盖住前面的；
 - **alpha**：默认 `render_type: minecraft:cutout`（口贴图带透明像素时必需）；
   贴图完全不透明时用 `.portCutout(false)` 关掉。
 
 贴图由作者自己给：`.port(你自己的贴图)`。不写参数就是本库自带的兜底贴图
-（`MachineDefinition.DEFAULT_PORT_TEXTURE`，一张深色描边的「开口」图，随时可换）。
+（`MachineDefinition.DEFAULT_PORT_TEXTURE` = `ogmr:block/overlay/machine/overlay_hatch`，从 GTM 搬的）。
 
-### 13.3 覆盖层贴图（照 GTM 的 overlay 那套拆的）
+### 12.3 覆盖层贴图（照 GTM 的 overlay 那套拆的）
 
 机器（尤其多方块控制器）的贴图不止「一层外壳」。注册时可以给三类覆盖层，全都贴在**朝向那一面**：
 
@@ -612,7 +613,7 @@ REGISTRAR.multiblock("large_foundry", LargeFoundryMachine::new)
 - ⚠️ 模型里 {`face.texture(...)`} 收的是**引用**，必须带 `#`（`#overlay` 而不是 `overlay`）——
   少了 `#` 会生成 `"texture": "minecraft:overlay"`，游戏里就是缺失贴图。
 
-### 13.4 成型 / 工作状态真的会写进方块状态
+### 12.4 成型 / 工作状态真的会写进方块状态
 
 覆盖层靠方块状态选模型，所以这两个状态必须真的被写下去（以前是 TODO，现在接好了）：
 
@@ -623,7 +624,7 @@ REGISTRAR.multiblock("large_foundry", LargeFoundryMachine::new)
 
 两者都走 `MetaMachine#setBlockStateBoolean(...)`（值没变就不刷方块，所以每 tick 调也安全）。
 
-### 13.5 已知边界
+### 12.5 已知边界
 
 - 口与覆盖层都固定在**朝向那一面**（不再单独开第二个属性）—— 想让它们换面，就改朝向；
 - `RotationState.NONE` + 覆盖层/口会打一条 warn 并跳过这些模型（没有朝向就表达不出画在哪一面）；
@@ -635,7 +636,7 @@ REGISTRAR.multiblock("large_foundry", LargeFoundryMachine::new)
 
 ---
 
-## 12. 加一种自己的配方内容（`IContentKind`）
+## 13. 加一种自己的配方内容（`IContentKind`）
 
 物品和流体只是**两种内置实现**，不是写死的分支。第三方想加「能量 / 魔力 / 气体」：
 
@@ -658,5 +659,47 @@ public static final IContentKind MANA = ContentKinds.register(new AbstractConten
 - 语言键 `ogmr.content.kind.<id>` 由 `IContentKind#registerLang()` 生成（`ContentKinds#initLang()` 会带上已注册的全部）。
 - 库内部不再特判物品/流体：`OGMRRecipe#getItemInputs` 只是 `filter(ContentKinds.ITEM, ...)` 的便捷写法，
   你自己那种内容用 `OGMRRecipe.filter(MANA, inputs)` 筛。
+
+---
+
+## 14. 贴图来源与许可
+
+本库**不含自制美术**，方块贴图都是从 **GregTech Modern（GTM）** 搬过来的，保留了 GTM 的原始目录结构，
+方便对照与替换：
+
+| 用途 | 路径 | 说明 |
+|---|---|---|
+| 仓室的口 | `block/overlay/machine/overlay_{hatch,item_hatch*,fluid_hatch*,energy_1a_*}.png` | 按用途分：物品仓 input/output、能源仓 in/out（带 `_emissive` 发光件） |
+| 控制器正面 | `block/machine/overlay/front{,_active,_active_emissive,_emissive}.png` | GTM 多方块控制器的待机 / 工作态正面 |
+| 外壳 | `block/casings/solid/machine_casing_solid_steel.png`、`machine_casing_heatproof.png` | 测试包用的底盘 |
+
+- 来源：GregTech Modern（`assets/gtceu/textures/**`），与本库同为 **LGPL-3.0**，可随库一起分发；
+  换掉它们不影响任何代码（贴图都是注册时用 `ResourceLocation` 指定的）。
+- 界面（GUI）贴图则是本库用 `tools/GuiTextureGenerator.java` **程序生成**的（纯色 + 描边，
+  零美术依赖），与上表无关。
+
+## 15. 怎么验证「口」和覆盖层确实渲染了
+
+覆盖层/口都只在**朝向那一面**、并且有的层只在特定状态出现，所以看一眼没看到不代表坏了。最快的验证方式：
+
+```mcfunction
+// ① 把一台机器直接摆成「正在工作 + 已成型」，一次看全三层（不用真去搭多方块）
+/setblock ~ ~ ~ ogmr:test_multiblock[facing=north,active=true,formed=true] replace
+
+// ② 只看工作态发光层
+/setblock ~ ~ ~ ogmr:test_generator[facing=north,active=true] replace
+
+// ③ 仓室的口：摆成一排不同朝向，从北/东/南/西各看一次
+/give @p ogmr:lv_item_input_bus 6
+```
+
+判断要点：
+
+- 口/覆盖层**只在朝向那一面**有 —— 从其它五个面看就是干净的外壳贴图（这是设计如此，不是没渲染）；
+- `active` 只在配方逻辑真的在跑时为真（发电机喂煤、机器里塞原料），否则发光层不会出现；
+- `formed` 只在多方块成型时为真；
+- 世界里的模型来自 `src/generated/resources/assets/ogmr/models/block/<name>_*.json`，
+  里面能看到底层与各层分别引用哪张贴图，对不上就是注册时贴图给错了。
+
 
 

@@ -52,7 +52,7 @@
   ],
   "render_type": "minecraft:cutout",
   "textures": {
-    "all": "minecraft:block/gold_block",
-    "overlay": "ogmr:block/machine/overlay_front_default"
+    "all": "ogmr:block/casings/solid/machine_casing_heatproof",
+    "overlay": "ogmr:block/machine/overlay/front"
   }
 }

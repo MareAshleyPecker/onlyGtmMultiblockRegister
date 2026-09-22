@@ -67,21 +67,10 @@ public final class GuiTextureGenerator {
     private static final int PROGRESS_FILLED = 0xFF3F8F3F;
     private static final int PROGRESS_FILLED_LIGHT = 0xFF6FC46F;
 
-    /** 「口」兜底贴图的配色。 */
-    private static final int PORT_FRAME = 0xFF101010;
-    private static final int PORT_BEVEL = 0xFF7A7A7A;
-    private static final int PORT_BODY = 0xFF242424;
-    private static final int PORT_BAR = 0xFF8B8B8B;
-
-    /** 三层覆盖层兜底贴图的配色（正面 / 成型 / 发光）。 */
-    private static final int OVERLAY_LINE = 0xC0D0D0D0;
-    private static final int OVERLAY_FORMED_LINE = 0xC0E0B050;
-    private static final int OVERLAY_EMISSIVE_LINE = 0xC0FFE070;
-
     private GuiTextureGenerator() {}
 
     public static void main(String[] args) throws IOException {
-        // 默认写到 assets/ogmr/textures 根；下面按 gui/ 与 block/ 分目录
+        // 默认写到 assets/ogmr/textures 根
         File root = new File(args.length > 0 ? args[0] : "src/main/resources/assets/ogmr/textures");
 
         write(root, "gui/base/background.png", panel(16, PANEL_FILL, PANEL_BORDER, PANEL_LIGHT, PANEL_DARK));
@@ -93,51 +82,9 @@ public final class GuiTextureGenerator {
         write(root, "gui/progress/bar_background.png", bar(32, 16, PROGRESS_EMPTY, PROGRESS_EMPTY_BORDER));
         write(root, "gui/progress/bar_filled.png", bar(32, 16, PROGRESS_FILLED, PROGRESS_FILLED_LIGHT));
 
-        // 方块贴图：仓室「口」的兜底贴图（MachineDefinition.DEFAULT_PORT_TEXTURE = ogmr:block/machine/port_default）
-        write(root, "block/machine/port_default.png", port());
-        // 覆盖层兜底贴图（GTM 的 overlay_front / IS_FORMED / overlay_front_emissive 那三个槽）
-        write(root, "block/machine/overlay_front_default.png", overlayFrame(OVERLAY_LINE, 0));
-        write(root, "block/machine/overlay_formed_default.png", overlayFrame(OVERLAY_FORMED_LINE, 3));
-        write(root, "block/machine/overlay_front_emissive_default.png", overlayFrame(OVERLAY_EMISSIVE_LINE, 6));
-
-        System.out.println("ogmr: textures written under " + root.getAbsolutePath());
-    }
-
-    /**
-     * 「口」的兜底贴图：深色外框 + 内侧高光 + 中间两道横杠，看起来像一个开口。
-     *
-     * <p>作者要换自己的美术，就在注册时写 {@code .port(自己的贴图)}，不用动这张。
-     */
-    private static BufferedImage port() {
-        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        fill(image, PORT_BODY);
-        line(image, 1, 1, 14, true, PORT_BEVEL);
-        line(image, 1, 1, 14, false, PORT_BEVEL);
-        for (int y = 6; y <= 7; y++) {
-            line(image, 3, y, 10, true, PORT_BAR);
-        }
-        for (int y = 10; y <= 11; y++) {
-            line(image, 3, y, 10, true, PORT_BAR);
-        }
-        rect(image, 0, 0, 16, 16, PORT_FRAME);
-        return image;
-    }
-
-    /**
-     * 覆盖层兜底贴图：一圈半透明描边 + 中间一条横带（带 alpha，用来验证 cutout 渲染层）。
-     *
-     * @param color    描边色（含 alpha）
-     * @param bandY    中间横带的 y 坐标（三层各错开，便于肉眼分辨是哪一层在显示）
-     */
-    private static BufferedImage overlayFrame(int color, int bandY) {
-        int transparent = 0x00000000;
-        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
-        fill(image, transparent);
-        rect(image, 1, 1, 14, 14, color);
-        for (int y = bandY; y < bandY + 2 && y < 15; y++) {
-            line(image, 4, y, 8, true, color);
-        }
-        return image;
+        // ⚠️ 方块贴图（口 / 覆盖层 / 底盘）不在这里生成 —— 那些是从 GTM 搬来的美术资源，
+        //    见 assets/ogmr/textures/block/** 与 README「贴图来源」一节。
+        System.out.println("ogmr: GUI textures written under " + root.getAbsolutePath());
     }
 
     /**

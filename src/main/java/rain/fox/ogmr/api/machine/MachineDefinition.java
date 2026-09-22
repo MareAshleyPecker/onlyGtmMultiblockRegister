@@ -166,15 +166,14 @@ public class MachineDefinition implements Supplier<Block> {
     @Getter
     private boolean overlayCutout = true;
 
-    /** 本库自带的兜底覆盖层贴图（纯色描边；作者可以直接换掉）。 */
-    public static final ResourceLocation DEFAULT_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay_front_default");
-    /** 本库自带的兜底「成型」覆盖层贴图。 */
-    public static final ResourceLocation DEFAULT_FORMED_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay_formed_default");
-    /** 本库自带的兜底「发光」覆盖层贴图。 */
-    public static final ResourceLocation DEFAULT_EMISSIVE_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay_front_emissive_default");
-
-    /** 本库自带的兜底「口」贴图（纯色描边；作者可以直接换掉）。 */
-    public static final ResourceLocation DEFAULT_PORT_TEXTURE = ResourceLocations.ogmr("block/machine/port_default");
+    /** 本库自带的兜底「口」贴图（GTM 的通用仓室口）。 */
+    public static final ResourceLocation DEFAULT_PORT_TEXTURE = ResourceLocations.ogmr("block/overlay/machine/overlay_hatch");
+    /** 本库自带的兜底正面覆盖层（GTM 多方块控制器的正面：待机态）。 */
+    public static final ResourceLocation DEFAULT_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay/front");
+    /** 本库自带的兜底「成型」覆盖层（GTM 控制器的工作态正面，成型后亮起来）。 */
+    public static final ResourceLocation DEFAULT_FORMED_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay/front_active");
+    /** 本库自带的兜底「发光」覆盖层（GTM 控制器工作态正面的发光部分）。 */
+    public static final ResourceLocation DEFAULT_EMISSIVE_OVERLAY_TEXTURE = ResourceLocations.ogmr("block/machine/overlay/front_active_emissive");
 
     /**
      * 正在构造的机器定义 —— 给 {@code MachineBlock} 的构造器用。
