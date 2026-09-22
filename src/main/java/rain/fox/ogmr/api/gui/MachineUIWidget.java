@@ -81,14 +81,17 @@ public class MachineUIWidget extends WidgetGroup {
         for (MachineUI.TextSource source : ui.textSources()) {
             Widget widget = MachineUI.findById(this, source.id());
             if (widget instanceof LabelWidget label) {
-                refreshers.add(() -> label.setTextProvider(() -> plainText(source.supplier().get())));
+                refreshers.add(() -> label.setTextProvider(() -> plainText(source.supplier().apply(machine))));
             }
         }
         for (MachineUI.ProgressSource source : ui.progressSources()) {
             Widget widget = MachineUI.findById(this, source.id());
             if (widget instanceof ProgressWidget progress) {
-                // 适配 Supplier<Double> -> DoubleSupplier
-                refreshers.add(() -> progress.setProgressSupplier(() -> source.supplier().get()));
+                // 适配「机器 → 数值」到 LDLib 的 DoubleSupplier
+                refreshers.add(() -> progress.setProgressSupplier(() -> {
+                    Double value = source.supplier().apply(machine);
+                    return value == null ? 0d : value;
+                }));
             }
         }
 
@@ -104,6 +107,18 @@ public class MachineUIWidget extends WidgetGroup {
     }
 
     // ═══════════════════════ 生命周期 ═══════════════════════
+
+    /**
+     * 含右侧信息栏在内的完整宽度 —— 建 {@link ModularUI} 时用它，否则信息栏落在面板外面被裁掉。
+     */
+    public int getFullWidth() {
+        return getSizeWidth() + (infoPanel != null ? infoPanelOffsetX + infoPanelWidth : 0);
+    }
+
+    /** 含信息栏（或面板本身）在内的完整高度。 */
+    public int getFullHeight() {
+        return Math.max(getSizeHeight(), infoPanel != null ? infoPanelOffsetY + 60 : 0);
+    }
 
     @Override
     public void initWidget() {

@@ -6,6 +6,8 @@ import rain.fox.ogmr.api.energy.EnergyHatchPartMachine;
 import rain.fox.ogmr.api.energy.EnergyHatchSize;
 import rain.fox.ogmr.api.energy.EnergyHatchSizes;
 import rain.fox.ogmr.api.energy.EnergyTypes;
+import rain.fox.ogmr.api.gui.MachineUI;
+import rain.fox.ogmr.api.gui.ProgressDirection;
 import rain.fox.ogmr.api.lang.OGMRLang;
 import rain.fox.ogmr.api.machine.MachineDefinition;
 import rain.fox.ogmr.api.machine.MultiblockMachineDefinition;
@@ -114,6 +116,17 @@ public final class TestRegistrations {
         initLang();
         // 自定义内容种类的 codec 自检（结果在日志里：content kind round-trip ... equal=true）
         TestContentKinds.selfCheck();
+        // 界面自动注册自检（结果在日志里：UI of ogmr:xxx = 176x166, entries=.., autoLayout=..）
+        logUiSummary();
+    }
+
+    /** 把每台测试机器的界面情况打到日志 —— datagen 阶段就会跑，不用进游戏才知道。 */
+    static void logUiSummary() {
+        for (MachineDefinition definition : new MachineDefinition[] { ITEM_INPUT_BUS, ITEM_OUTPUT_BUS,
+                ENERGY_INPUT_HATCH, ENERGY_OUTPUT_HATCH, TEST_MULTIBLOCK, TEST_GENERATOR }) {
+            if (definition == null) continue;
+            Ogmr.LOGGER.info("ogmr test pack: UI of {} = {}", definition.getId(), describeUi(definition));
+        }
     }
 
     /**
@@ -205,6 +218,18 @@ public final class TestRegistrations {
                 .additionalDisplay((controller, lines) -> lines.add(
                         Component.translatable("block.ogmr.test_multiblock.tooltip.0")))
                 .langValue("Test Multiblock (threaded)", "测试多方块（多线程）")
+                // 显式界面：标题 + 进度条 + 线程状态文本（演示「addon 自己配 UI」这条通道；
+                // 不写这行的话 builder 会给一个零配置界面 —— 标题 + 背包 + 按仓储自动摆的槽位）
+                .ui(MachineUI.create("test_multiblock", Ogmr.id("test_multiblock"))
+                        .title()
+                        .progress(62, 33, 24, 16, ProgressDirection.LEFT_TO_RIGHT,
+                                machine -> machine instanceof TestMultiblockMachine multi
+                                        ? multi.getRecipeLogic().getProgressPercent()
+                                        : 0d)
+                        .text(8, 58, machine -> machine instanceof TestMultiblockMachine multi
+                                ? Component.translatable("ogmr.test.ui.threads", multi.getMaxThreads())
+                                : Component.empty())
+                        .playerInventory(8, 84))
                 .modelTexture(vanillaTexture("iron_block"))
                 .register();
 
@@ -281,7 +306,8 @@ public final class TestRegistrations {
                 .eut(OGMRValues.V[OGMRValues.LV])
                 .save(finished -> {});
 
-        // ── 发电机配方：eut 为<b>负</b>表示产电（见 OGMRRecipe#isGenerator）──        //    1 煤炭 → 无产物，80 tick，产能 MV（-128 EU/t）。
+        // ── 发电机配方：eut 为<b>负</b>表示产电（见 OGMRRecipe#isGenerator）──
+        //    1 煤炭 → 无产物，80 tick，产能 MV（-128 EU/t）。
         //    这条配方配合 TEST_GENERATOR_RECIPES 的 energyIO(IO.OUT)：
         //    结构里要放能源输出仓，机器类型自动是发电机。
         TEST_GENERATOR_RECIPES.recipeBuilder("coal_generator")
@@ -301,6 +327,8 @@ public final class TestRegistrations {
         // 这里只补 tooltip 这类机器名之外的文案。
         OGMRLang.add("itemGroup." + Ogmr.MOD_ID,
                 "Only GT Multiblock Register", "格雷多方块注册库");
+        OGMRLang.add("ogmr.test.ui.threads",
+                "Thread hatches installed · max %s threads", "已装线程仓 · 最多 %s 条线程");
         OGMRLang.add("block.ogmr.test_multiblock.tooltip.0",
                 "ogmr test machine — verifies structure, hatches, threading and energy.",
                 "ogmr 测试机 —— 验证结构、仓室、多线程与能量。");
@@ -327,5 +355,14 @@ public final class TestRegistrations {
                 ENERGY_INPUT_HATCH != null ? ENERGY_INPUT_HATCH.getId() : "null",
                 ENERGY_OUTPUT_HATCH != null ? ENERGY_OUTPUT_HATCH.getId() : "null",
                 EnergyHatchSizes.sizeCount());
+    }
+
+    /** 把一台机器的界面情况说成一行日志。 */
+    private static String describeUi(MachineDefinition definition) {
+        if (!definition.hasUI()) return "NONE (右键不会有反应)";
+        var ui = definition.getMachineUI();
+        return "%dx%d, entries=%d, autoLayout=%s, entityRenderer=%s".formatted(
+                ui.getWidth(), ui.getHeight(), ui.getEntryCount(), ui.isAutoLayout(),
+                definition.isUseEntityRenderer());
     }
 }

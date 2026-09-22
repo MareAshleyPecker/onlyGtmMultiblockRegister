@@ -74,6 +74,7 @@
   "ogmr.test.multiblock.no_input_bus": "Missing item input bus",
   "ogmr.test.multiblock.no_output_bus": "Missing item output bus",
   "ogmr.test.multiblock.threads": "Threads %s · Stored %s",
+  "ogmr.test.ui.threads": "Thread hatches installed · max %s threads",
   "ogmr.threading.hatch.threads": "Threads %s / %s",
   "ogmr.threading.hatch.tier": "Tier %s · %s threads per hatch",
   "ogmr.threading.line.error": "#%s  error: %s",

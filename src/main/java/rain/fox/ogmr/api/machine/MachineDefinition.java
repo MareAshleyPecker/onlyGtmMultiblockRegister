@@ -130,6 +130,29 @@ public class MachineDefinition implements Supplier<Block> {
     @Setter
     private rain.fox.ogmr.api.gui.editor.EditableMachineUI editableUI;
 
+    /**
+     * 本机器的界面（需求 1）。
+     *
+     * <p>
+     * 非空时右键机器就能打开它（见 {@code MetaMachine#tryToOpenUI}）。
+     * builder 没显式给 UI 时会给一个 {@code MachineUI.createDefault(...)} 的零配置界面
+     * （标题 + 玩家背包 + 按机器仓储自动摆的槽位），所以「注册了机器却没有界面」不会发生。
+     */
+    @Getter
+    private rain.fox.ogmr.api.gui.MachineUI machineUI;
+
+    /**
+     * 是否把方块渲染交给方块实体（BER）。
+     *
+     * <p>
+     * 默认 {@code false}：方块走<b>静态模型</b>（数据生成的
+     * {@code blockstates/<name>.json} + {@code models/block/<name>.json}），这是本库的默认路径。
+     * 只有你自己注册了 BER（动态模型、旋转覆盖层之类）才把它设成 true ——
+     * 设 true 而没注册 BER，方块会<b>什么都不画</b>（表现为「贴图是空的」，物品栏里却正常）。
+     */
+    @Getter
+    private boolean useEntityRenderer;
+
     public MachineDefinition(ResourceLocation id) {
         this.id = id;
     }
@@ -179,6 +202,28 @@ public class MachineDefinition implements Supplier<Block> {
 
     public MachineDefinition setRecipeTypes(OGMRRecipeType... types) {
         this.recipeTypes = types == null ? new OGMRRecipeType[0] : types;
+        return this;
+    }
+
+    // ═══════════════ UI / 渲染 ═══════════════
+
+    /** 设置界面（链式；同时把可编辑 UI 句柄一并挂上，两个通道指向同一个布局）。 */
+    public MachineDefinition setMachineUI(rain.fox.ogmr.api.gui.MachineUI ui) {
+        this.machineUI = ui;
+        if (ui != null) {
+            this.editableUI = ui.buildEditable();
+        }
+        return this;
+    }
+
+    /** 是否有可打开的界面。 */
+    public boolean hasUI() {
+        return machineUI != null;
+    }
+
+    /** 链式设置 {@link #isUseEntityRenderer()}。 */
+    public MachineDefinition setUseEntityRenderer(boolean useEntityRenderer) {
+        this.useEntityRenderer = useEntityRenderer;
         return this;
     }
 

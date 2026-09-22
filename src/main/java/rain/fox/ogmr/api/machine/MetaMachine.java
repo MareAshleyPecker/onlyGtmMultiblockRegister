@@ -7,17 +7,28 @@ import com.lowdragmc.lowdraglib.syncdata.annotation.DescSynced;
 import com.lowdragmc.lowdraglib.syncdata.annotation.Persisted;
 import com.lowdragmc.lowdraglib.syncdata.field.FieldManagedStorage;
 import com.lowdragmc.lowdraglib.syncdata.field.ManagedFieldHolder;
+import com.lowdragmc.lowdraglib.gui.modular.IUIHolder;
+import com.lowdragmc.lowdraglib.gui.modular.ModularUI;
 
 import lombok.Getter;
+
+import rain.fox.ogmr.api.gui.MachineUI;
+import rain.fox.ogmr.api.gui.MachineUIWidget;
+import rain.fox.ogmr.api.gui.factory.MachineUIFactory;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.phys.BlockHitResult;
 import net.minecraftforge.client.model.data.ModelData;
 import net.minecraftforge.common.capabilities.Capability;
 
@@ -57,7 +68,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * }
  * }</pre>
  */
-public abstract class MetaMachine implements IManaged, ITagSerializable<CompoundTag> {
+public abstract class MetaMachine implements IManaged, ITagSerializable<CompoundTag>, IUIHolder {
 
     /** 基类的字段持有者；子类把它作为 parent 传进 {@link #holder(Class, ManagedFieldHolder)}。 */
     public static final ManagedFieldHolder MANAGED_FIELD_HOLDER = new ManagedFieldHolder(MetaMachine.class);
@@ -374,6 +385,68 @@ public abstract class MetaMachine implements IManaged, ITagSerializable<Compound
 
     /** GUI / Jade 用的文本行；默认空，子类覆写。 */
     public void addDisplayText(List<Component> textList) {}
+
+    // ═══════════════ UI ═══════════════
+
+    /**
+     * 右键本机器时要不要打开界面。
+     *
+     * <p>
+     * 默认「有界面就开」——{@link MachineDefinition#getMachineUI()} 由 builder 保证非空
+     * （没显式配就给一个零配置的默认界面），所以任何机器右键都有反应。
+     * 想让某些情况（比如手里拿着扳手）不弹界面，覆写它返回 false。
+     */
+    public boolean shouldOpenUI(Player player, InteractionHand hand, BlockHitResult hit) {
+        return getDefinition().hasUI();
+    }
+
+    /**
+     * 尝试打开界面（{@code MachineBlock#use} 调它）。
+     *
+     * <p>
+     * 打开动作只在<b>服务端</b>发起（{@link MachineUIFactory} 会把「打开哪个 BE 的界面」同步给客户端）；
+     * 客户端这一侧返回 {@link InteractionResult#sidedSuccess} 让挥手动画正常走。
+     */
+    public InteractionResult tryToOpenUI(Player player, InteractionHand hand, BlockHitResult hit) {
+        if (!shouldOpenUI(player, hand, hit)) {
+            return InteractionResult.PASS;
+        }
+        if (player instanceof ServerPlayer serverPlayer) {
+            MachineUIFactory.INSTANCE.openUI(this, serverPlayer);
+        }
+        return InteractionResult.sidedSuccess(isRemote());
+    }
+
+    /**
+     * 造这个机器的界面（LDLib 的 {@link ModularUI}）；没有界面时返回 {@code null}。
+     *
+     * <p>
+     * 布局来自 {@link MachineDefinition#getMachineUI()}：默认那张零配置界面 = 标题 + 玩家背包
+     * + 按机器实际暴露的物品/流体仓储自动摆的槽位（见 {@link MachineUI#createDefault}）。
+     * 想自定义就覆写本方法，或者注册机器时用 {@code builder.ui(MachineUI...)}。
+     */
+    @Override
+    @Nullable
+    public ModularUI createUI(Player player) {
+        MachineUI ui = getDefinition().getMachineUI();
+        if (ui == null) {
+            return null;
+        }
+        MachineUIWidget widget = new MachineUIWidget(this, ui);
+        return new ModularUI(widget.getFullWidth(), widget.getFullHeight(), this, player).widget(widget);
+    }
+
+    // ── LDLib 的 IUIHolder 契约 ──
+
+    @Override
+    public boolean isInvalid() {
+        return isInValid();
+    }
+
+    @Override
+    public void markAsDirty() {
+        markDirty();
+    }
 
     /** 供模型数据（Forge ModelData）使用；默认转发给所有 trait。 */
     public void updateModelData(ModelData.Builder builder) {

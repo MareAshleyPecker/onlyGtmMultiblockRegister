@@ -74,6 +74,7 @@
   "ogmr.test.multiblock.no_input_bus": "缺少物品输入总线",
   "ogmr.test.multiblock.no_output_bus": "缺少物品输出总线",
   "ogmr.test.multiblock.threads": "线程 %s · 已存 %s",
+  "ogmr.test.ui.threads": "已装线程仓 · 最多 %s 条线程",
   "ogmr.threading.hatch.threads": "线程 %s / %s",
   "ogmr.threading.hatch.tier": "档位 %s · 每仓 %s 条线程",
   "ogmr.threading.line.error": "#%s  出错：%s",

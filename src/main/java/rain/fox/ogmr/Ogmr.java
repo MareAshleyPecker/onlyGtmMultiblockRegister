@@ -5,6 +5,7 @@ import rain.fox.ogmr.api.energy.EnergyHatchPartMachine;
 import rain.fox.ogmr.api.energy.EnergyHatchSizes;
 import rain.fox.ogmr.api.energy.EnergyTypes;
 import rain.fox.ogmr.api.energy.EnergyUnit;
+import rain.fox.ogmr.api.gui.factory.MachineUIFactory;
 import rain.fox.ogmr.api.item.MachineItem;
 import rain.fox.ogmr.api.lang.OGMRLang;
 import rain.fox.ogmr.api.machine.trait.RecipeLogic;
@@ -77,6 +78,9 @@ public class Ogmr {
         OGMRRegistries.init(modBus);
         OGMRLang.add("ogmr.tooltip.library", "Registered by onlyGtmMultiblockRegister",
                 "由 onlyGtmMultiblockRegister 注册");
+
+        // LDLib 的 UI 工厂表：不注册的话右键机器打不开界面（客户端不认识 ogmr:machine 这个工厂）
+        MachineUIFactory.register();
 
         // ogmr:generic 配方序列化器 —— 不注册的话数据包里的本库配方加载不了
         OGMRRecipeSerializer.register(modBus);

@@ -61,12 +61,29 @@ public class EditableMachineUI implements IEditableUI<WidgetGroup, MetaMachine> 
     @Nullable
     private CompoundTag customUICache;
 
+    /**
+     * 造出本句柄的 {@link rain.fox.ogmr.api.gui.MachineUI}（反查用）；手工 {@code new} 的为 null。
+     *
+     * <p>
+     * 用途：addon 只写了 {@code .editableUI(ui.buildEditable())} 时，注册期需要靠它把
+     * 「这台机器该用哪份 UI」找回来，否则会退回自动生成的零配置界面、把 addon 的布局丢掉。
+     */
+    @Getter
+    @Nullable
+    private rain.fox.ogmr.api.gui.MachineUI owner;
+
     public EditableMachineUI(String groupName, ResourceLocation uiPath, Supplier<WidgetGroup> widgetSupplier,
                              BiConsumer<WidgetGroup, MetaMachine> binder) {
         this.groupName = groupName;
         this.uiPath = uiPath;
         this.widgetSupplier = widgetSupplier;
         this.binder = binder;
+    }
+
+    /** 记下造出本句柄的 UI（由 {@code MachineUI#buildEditable()} 调用）。 */
+    public EditableMachineUI withOwner(@Nullable rain.fox.ogmr.api.gui.MachineUI owner) {
+        this.owner = owner;
+        return this;
     }
 
     /** 便捷静态工厂，等价于 {@code new EditableMachineUI(...)}。 */

@@ -3,6 +3,7 @@ package rain.fox.ogmr.api.registry.builder;
 import rain.fox.ogmr.Ogmr;
 import rain.fox.ogmr.api.block.MachineBlock;
 import rain.fox.ogmr.api.blockentity.MachineBlockEntity;
+import rain.fox.ogmr.api.gui.MachineUI;
 import rain.fox.ogmr.api.item.MachineItem;
 import rain.fox.ogmr.api.lang.OGMRLang;
 import rain.fox.ogmr.api.machine.IMachineBlockEntity;
@@ -86,6 +87,10 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
     protected boolean noItem = false;
     /** 可编辑 UI（需求 1）：非空时机器面板优先读 assets/<ns>/ui/machine/<path>.mui。 */
     protected rain.fox.ogmr.api.gui.editor.EditableMachineUI editableUI;
+    /** 机器界面（右键打开）；null = register() 时自动造一个零配置界面。 */
+    protected rain.fox.ogmr.api.gui.MachineUI machineUI;
+    /** 方块是否交给 BER 渲染（默认 false = 静态模型）。 */
+    protected boolean useEntityRenderer;
     /** 英文显示名；null = datagen 时按 id 自动推导。 */
     protected String langValue;
     /** 中文显示名；null = 中文语言文件里回退成英文。 */
@@ -205,6 +210,41 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
     }
 
     /**
+     * 指定机器界面（右键机器打开的那个）。
+     *
+     * <p>
+     * 不指定也没关系 —— {@link #register()} 会给一个
+     * {@link rain.fox.ogmr.api.gui.MachineUI#createDefault} 的零配置界面
+     * （标题 + 玩家背包 + 按机器仓储自动摆的槽位），所以「机器注册了但右键没反应」不会发生。
+     * 想要自己的布局就在这里给：
+     * <pre>{@code
+     * .ui(MachineUI.create("maceration", MyIds.id("maceration"))
+     *         .title()
+     *         .itemSlot(26, 20, 0, true)
+     *         .progress(62, 33, 24, 16, ProgressDirection.LEFT_TO_RIGHT, machine::getProgress)
+     *         .playerInventory(8, 84))
+     * }</pre>
+     */
+    public B ui(rain.fox.ogmr.api.gui.MachineUI ui) {
+        this.machineUI = ui;
+        if (ui != null) {
+            this.editableUI = ui.buildEditable();
+        }
+        return self();
+    }
+
+    /**
+     * 方块是否交给方块实体渲染（BER）。
+     *
+     * <p>默认 false（静态模型，走数据生成的 blockstates/models）。⚠️ 设 true 之前请先注册 BER，
+     * 否则方块在世界里<b>什么都不画</b>。
+     */
+    public B entityRenderer(boolean useEntityRenderer) {
+        this.useEntityRenderer = useEntityRenderer;
+        return self();
+    }
+
+    /**
      * 指定中英显示名 —— 一个机器名同时管住 {@code en_us} 与 {@code zh_cn}。
      *
      * <p>
@@ -267,6 +307,14 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
         if (editableUI != null) definition.setEditableUI(editableUI);
         if (modelTexture != null) definition.setModelTexture(modelTexture);
         if (langValue != null) definition.setLangValue(langValue);
+        // UI 自动注册：addon 没给界面就给一个零配置的（标题 + 背包 + 按仓储自动摆的槽位），
+        // 保证「机器注册完右键就能开出界面」。
+        // 只写了 .editableUI(ui.buildEditable()) 的 addon 也能被认出（EditableMachineUI 记了 owner）。
+        MachineUI resolvedUI = machineUI != null ? machineUI
+                : editableUI != null && editableUI.getOwner() != null ? editableUI.getOwner()
+                : MachineUI.createDefault(name, id);
+        definition.setMachineUI(resolvedUI);
+        definition.setUseEntityRenderer(useEntityRenderer);
         if (langValueZh != null) {
             String englishName = langValue != null ? langValue : Formatting.toEnglishName(id.getPath());
             OGMRLang.add("block." + id.getNamespace() + "." + id.getPath(), englishName, langValueZh);

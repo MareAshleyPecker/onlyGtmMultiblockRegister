@@ -143,10 +143,18 @@ public class MachineBlock extends Block implements EntityBlock {
         };
     }
 
-    /** 渲染成实体方块模型（模型由 BE / 外部渲染器负责）。 */
+    /**
+     * 渲染方式：默认走<b>静态模型</b>（数据生成产出的 blockstates/models）。
+     *
+     * <p>
+     * ⚠️ 这里曾经是无条件 {@link RenderShape#ENTITYBLOCK_ANIMATED}（GTM 的写法），结果是
+     * 「世界里方块什么都不画、物品栏里却正常」——因为 ENTITYBLOCK_ANIMATED 表示「静态模型别画，
+     * 交给方块实体渲染器」，而本库<b>默认不注册 BER</b>。所以只有定义里显式声明了
+     * {@link MachineDefinition#isUseEntityRenderer()}（即 addon 自己注册了 BER）才用那条路。
+     */
     @Override
     public RenderShape getRenderShape(BlockState state) {
-        return RenderShape.ENTITYBLOCK_ANIMATED;
+        return definition.isUseEntityRenderer() ? RenderShape.ENTITYBLOCK_ANIMATED : RenderShape.MODEL;
     }
 
     @Override
@@ -157,17 +165,21 @@ public class MachineBlock extends Block implements EntityBlock {
     // ═══════════════ 交互 / 事件 ═══════════════
 
     /**
-     * 右键交互。
+     * 右键交互：<b>打开机器界面</b>。
      *
      * <p>
-     * TODO(ogmr): 精简版不做交互（直接返回 PASS，把事件留给别的东西）。GTM 在这里做的是
-     * 工具交互 + 所有权登记 + 打开 UI。接入 UI 后应该改成：
-     * {@code getMachine(world, pos).onUse(...)} 或者调 UI 层的 {@code tryToOpenUI(player, hand, hit)}。
+     * 机器没配界面（{@code getDefinition().hasUI()} 为 false）时返回
+     * {@link InteractionResult#PASS}，把事件让给别的东西（扳手、方块、物品……）。
+     * 实际打开动作在服务端由 {@link MetaMachine#tryToOpenUI} 发起（LDLib 的 UI 工厂会同步给客户端）。
      */
     @Override
     public InteractionResult use(BlockState state, Level world, BlockPos pos, Player player, InteractionHand hand,
                                  BlockHitResult hit) {
-        return InteractionResult.PASS;
+        MetaMachine machine = getMachine(world, pos);
+        if (machine == null) {
+            return InteractionResult.PASS;
+        }
+        return machine.tryToOpenUI(player, hand, hit);
     }
 
     @Override

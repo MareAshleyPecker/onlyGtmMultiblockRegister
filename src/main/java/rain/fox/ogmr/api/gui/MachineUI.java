@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -51,10 +52,14 @@ import java.util.function.Supplier;
  *         .itemSlot(98, 20, 2, true)
  *         .fluidTank(134, 20, 0)
  *         .progress(62, 33, 24, 16, ProgressDirection.LEFT_TO_RIGHT,
- *                   () -> machine.getRecipeProgress())
- *         .text(8, 60, () -> Component.literal("..."))
+ *                   machine -> machine instanceof MyMachine m ? m.getProgressPercent() : 0d)
+ *         .text(8, 60, machine -> Component.literal("..."))
  *         .playerInventory(8, 84);
  * }</pre>
+ *
+ * <p>
+ * 动态文本/进度的取值器都<b>带着机器</b>：一份 {@code MachineUI} 是所有同类机器共用的模板，
+ * 装配时才知道具体是哪一台（见 {@link #progress} / {@link #text}）。
  *
  * <h2>两条装配通道</h2>
  * <ol>
@@ -140,6 +145,27 @@ public class MachineUI {
     @Nullable
     private EditableMachineUI editableUI;
 
+    /**
+     * 是否按机器暴露的仓储<b>自动摆槽位</b>。
+     *
+     * <p>
+     * 只有 {@link #createDefault} 造的「零配置界面」会打开它：装配时按机器实际有的
+     * 物品/流体仓储摆出槽位（见 {@link #autoEntries}）。addon 自己链式配了槽位的界面不受影响。
+     */
+    private boolean autoLayout = false;
+
+    // ═══════════════════════ 自动布局参数 ═══════════════════════
+
+    /** 自动槽位的起始位置（9 个一行，最多两行）。 */
+    private static final int AUTO_SLOT_X = 8;
+    private static final int AUTO_SLOT_Y = 20;
+    /** 自动储罐的起始位置（一行最多 3 个 18×18 小罐）。 */
+    private static final int AUTO_TANK_X = 8;
+    private static final int AUTO_TANK_Y = 58;
+    /** 自动布局最多摆多少个槽位 / 储罐。 */
+    private static final int AUTO_MAX_SLOTS = 18;
+    private static final int AUTO_MAX_TANKS = 3;
+
     // ═══════════════════════ 内部类型 ═══════════════════════
 
     /**
@@ -158,11 +184,11 @@ public class MachineUI {
         void bind(Widget widget, MetaMachine machine);
     }
 
-    /** 动态文本来源（id + 取值器）。 */
-    public record TextSource(String id, Supplier<Component> supplier) {}
+    /** 动态文本来源（id + 带机器的取值器）。 */
+    public record TextSource(String id, Function<MetaMachine, Component> supplier) {}
 
-    /** 进度条来源（id + 取值器）。 */
-    public record ProgressSource(String id, Supplier<Double> supplier) {}
+    /** 进度条来源（id + 带机器的取值器）。 */
+    public record ProgressSource(String id, Function<MetaMachine, Double> supplier) {}
 
     protected MachineUI(String groupName, ResourceLocation uiPath) {
         this.groupName = groupName;
@@ -180,7 +206,36 @@ public class MachineUI {
         return new MachineUI(groupName, uiPath);
     }
 
+    /**
+     * 造一个「零配置」界面：标题 + 玩家背包 + 按机器仓储自动摆的槽位。
+     *
+     * <p>
+     * builder 在 addon 没给界面时用它，所以任何机器注册完都能右键打开一个像样的面板，
+     * 不需要先写 widget 代码。对没有物品/流体仓储的机器（多方块控制器之类），自动槽位是空的，
+     * 面板上还剩标题、右侧信息栏（{@code MetaMachine#addDisplayText} 的内容）与玩家背包。
+     *
+     * @param groupName LDLib 编辑器分组名（机器名）
+     * @param uiPath    UI 工程路径（{@code assets/<ns>/ui/machine/<path>.mui}）
+     */
+    public static MachineUI createDefault(String groupName, ResourceLocation uiPath) {
+        return create(groupName, uiPath)
+                .title()
+                .playerInventory(8, 84)
+                .autoLayout(true);
+    }
+
     // ═══════════════════════ 流式 API ═══════════════════════
+
+    /** 开关自动布局（{@link #createDefault} 已默认打开）。 */
+    public MachineUI autoLayout(boolean enabled) {
+        this.autoLayout = enabled;
+        return this;
+    }
+
+    /** 当前是否开了自动布局。 */
+    public boolean isAutoLayout() {
+        return autoLayout;
+    }
 
     /** 界面尺寸（默认 176×166，即标准箱子界面）。 */
     public MachineUI size(int w, int h) {
@@ -217,8 +272,14 @@ public class MachineUI {
      * @param output true = 产物槽（玩家只能拿不能放）
      */
     public MachineUI itemSlot(int x, int y, int index, boolean output) {
+        entries.add(itemEntry(x, y, index, output));
+        return this;
+    }
+
+    /** 一个「按槽位下标绑到机器仓储」的物品槽登记项（自动布局也用它，所以单独抽出来）。 */
+    private Entry itemEntry(int x, int y, int index, boolean output) {
         String id = idItemSlot(index, output);
-        entries.add(new Entry(id,
+        return new Entry(id,
                 (root, machine) -> root.addWidget(createItemSlot(x, y, id, output)),
                 (widget, machine) -> {
                     if (widget instanceof SlotWidget slot) {
@@ -229,8 +290,7 @@ public class MachineUI {
                             slot.setCanTakeItems(true);
                         }
                     }
-                }));
-        return this;
+                });
     }
 
     /** {@link #itemSlot(int, int, int, boolean)} 的显式 handler 版本（不做能力查询）。 */
@@ -256,8 +316,14 @@ public class MachineUI {
 
     /** 绑到机器第 {@code index} 个储罐。 */
     public MachineUI fluidTank(int x, int y, int index) {
+        entries.add(fluidEntry(x, y, index));
+        return this;
+    }
+
+    /** 一个「按储罐下标绑到机器仓储」的流体罐登记项（自动布局也用它）。 */
+    private Entry fluidEntry(int x, int y, int index) {
         String id = idFluidTank(index);
-        entries.add(new Entry(id,
+        return new Entry(id,
                 (root, machine) -> root.addWidget(createTank(x, y, id)),
                 (widget, machine) -> {
                     if (widget instanceof TankWidget tank) {
@@ -266,8 +332,7 @@ public class MachineUI {
                             tank.setFluidTank(transfer, index);
                         }
                     }
-                }));
-        return this;
+                });
     }
 
     /** {@link #fluidTank(int, int, int)} 的显式 handler 版本。 */
@@ -291,45 +356,64 @@ public class MachineUI {
     /**
      * 加一个进度条。
      *
+     * <p>
+     * 取值器<b>带着机器</b>传进来 —— 一份 {@code MachineUI} 是所有同类机器共用的模板，
+     * 只能在装配时才知道是哪一台，所以取值器必须能拿到 {@link MetaMachine}：
+     * <pre>{@code
+     * .progress(62, 33, 24, 16, ProgressDirection.LEFT_TO_RIGHT,
+     *           machine -> machine instanceof WorkableMultiblockMachine multi ? multi.getProgress() : 0)
+     * }</pre>
+     *
      * @param progress 取值器，返回 0..1；每帧读取
      */
-    public MachineUI progress(int x, int y, int w, int h, ProgressDirection dir, Supplier<Double> progress) {
+    public MachineUI progress(int x, int y, int w, int h, ProgressDirection dir, Function<MetaMachine, Double> progress) {
         String id = idProgress(progressSources.size());
-        ProgressTexture texture = new ProgressTexture(GuiTextures.progressBarBackground(),
-                GuiTextures.progressBarFilled())
-                .setFillDirection(dir.toFillDirection());
         entries.add(new Entry(id,
-                (root, machine) -> root.addWidget(new ProgressWidget(ProgressWidget.JEIProgress, x, y, w, h, texture)
+                (root, machine) -> root.addWidget(new ProgressWidget(ProgressWidget.JEIProgress, x, y, w, h, texture(dir))
                         .setId(id)),
                 (widget, machine) -> {
                     if (widget instanceof ProgressWidget pw) {
-                        // LDLib 的 ProgressWidget 收 DoubleSupplier，而对外 API 用的是 Supplier<Double>
-                        // （与需求文档一致），这里补一层自动拆箱的适配。
-                        pw.setProgressSupplier(() -> progress.get());
+                        // LDLib 的 ProgressWidget 收 DoubleSupplier，这里补一层「机器 → 数值」的适配
+                        pw.setProgressSupplier(() -> valueOrZero(progress, machine));
                     }
                 }));
         progressSources.add(new ProgressSource(id, progress));
         return this;
     }
 
+    private static ProgressTexture texture(ProgressDirection dir) {
+        return new ProgressTexture(GuiTextures.progressBarBackground(), GuiTextures.progressBarFilled())
+                .setFillDirection(dir.toFillDirection());
+    }
+
+    /** 与机器无关的常量式取值器（例如编辑器里做静态预览）；一般机器请用带机器参数的那个重载。 */
+    public MachineUI progress(int x, int y, int w, int h, ProgressDirection dir, Supplier<Double> progress) {
+        return progress(x, y, w, h, dir, machine -> progress.get());
+    }
+
     /**
-     * 加一段动态文本。
+     * 加一段动态文本（取值器带机器，理由同 {@link #progress}）。
      *
      * <p>用 {@link LabelWidget#setTextProvider(Supplier)} 挂上取值器，所以服务端会随
      * {@code detectAndSendChanges} 自动同步、客户端每帧重读；{@link MachineUIWidget} 也会
      * 在 {@code updateScreen()} 里再刷一遍，双保险。
      */
-    public MachineUI text(int x, int y, Supplier<Component> supplier) {
+    public MachineUI text(int x, int y, Function<MetaMachine, Component> supplier) {
         String id = idText(textSources.size());
         entries.add(new Entry(id,
                 (root, machine) -> root.addWidget(createLabel(x, y, id, supplier)),
                 (widget, machine) -> {
                     if (widget instanceof LabelWidget label) {
-                        label.setTextProvider(() -> safeText(supplier));
+                        label.setTextProvider(() -> plainOrEmpty(supplier.apply(machine)));
                     }
                 }));
         textSources.add(new TextSource(id, supplier));
         return this;
+    }
+
+    /** 与机器无关的常量式文本。 */
+    public MachineUI text(int x, int y, Supplier<Component> supplier) {
+        return text(x, y, machine -> supplier.get());
     }
 
     /** 直接塞一个自己造的 widget（位置/尺寸/setId 都由调用方负责）。 */
@@ -357,6 +441,7 @@ public class MachineUI {
     public void build(MetaMachine machine, WidgetGroup root) {
         root.setBackground(background);
 
+        List<Entry> active = activeEntries(machine);
         EditableMachineUI editable = editable();
         WidgetGroup custom = editable.hasCustomUI() ? editable.createCustomUI() : null;
         if (custom != null) {
@@ -366,20 +451,20 @@ public class MachineUI {
                 root.addWidget(child);
             }
         } else {
-            createDefaultLayout(root);
+            createDefaultLayout(root, active);
         }
-        bind(root, machine);
+        bind(root, machine, active);
     }
 
     /** 默认布局（不含数据绑定）：给编辑器当模板，或给没有 .mui 的机器当运行时布局。 */
     public WidgetGroup createDefaultTemplate() {
         WidgetGroup root = new WidgetGroup(0, 0, width, height);
         root.setBackground(background);
-        createDefaultLayout(root);
+        createDefaultLayout(root, entries);
         return root;
     }
 
-    private void createDefaultLayout(WidgetGroup root) {
+    private void createDefaultLayout(WidgetGroup root, List<Entry> active) {
         if (withTitle) {
             LabelWidget title = new LabelWidget(6, 6, Component.empty());
             title.setTextColor(GuiTextures.COLOR_TEXT_TITLE);
@@ -392,20 +477,61 @@ public class MachineUI {
             inventory.setId(ID_PLAYER_INV);
             root.addWidget(inventory);
         }
-        for (Entry entry : entries) {
+        for (Entry entry : active) {
             entry.creator().accept(root, null);
         }
     }
 
+    /**
+     * 本次装配实际要用的登记项：显式登记的 + （开了自动布局时）按机器仓储自动摆的。
+     *
+     * <p>自动项是<b>每次装配现算</b>的临时列表，不会写回 {@link #entries}，
+     * 所以同一份 {@code MachineUI} 给多台机器用也不会互相污染。
+     */
+    private List<Entry> activeEntries(@Nullable MetaMachine machine) {
+        if (!autoLayout || machine == null) {
+            return entries;
+        }
+        List<Entry> all = new ArrayList<>(entries);
+        all.addAll(autoEntries(machine));
+        return all;
+    }
+
+    /**
+     * 按机器<b>实际暴露</b>的仓储自动生成槽位/储罐。
+     *
+     * <p>仓储从方块实体的 Forge 能力上取，所以任何「用 trait 暴露了物品栏/储罐」的机器
+     * 不用写一行 UI 代码就有对应界面；没有仓储（多方块控制器之类）时自动部分为空。
+     */
+    private List<Entry> autoEntries(MetaMachine machine) {
+        List<Entry> auto = new ArrayList<>();
+
+        int slots = Math.min(AUTO_MAX_SLOTS, resolveItemSlotCount(machine));
+        for (int i = 0; i < slots; i++) {
+            auto.add(itemEntry(AUTO_SLOT_X + (i % 9) * 18, AUTO_SLOT_Y + (i / 9) * 18, i, false));
+        }
+
+        int tanks = Math.min(AUTO_MAX_TANKS, resolveFluidTankCount(machine));
+        for (int i = 0; i < tanks; i++) {
+            auto.add(fluidEntry(AUTO_TANK_X + i * 20, AUTO_TANK_Y, i));
+        }
+        return auto;
+    }
+
     /** 把机器数据绑进模板（默认布局与自定义 .mui 共用这一条路径）。 */
     public void bind(WidgetGroup root, MetaMachine machine) {
+        bind(root, machine, entries);
+    }
+
+    /** 绑定指定的一批登记项（自动布局那条路会把「显式 + 自动」合起来传进来）。 */
+    public void bind(WidgetGroup root, MetaMachine machine, List<Entry> active) {
         if (withTitle) {
             Widget title = findById(root, ID_TITLE);
             if (title instanceof LabelWidget label) {
                 label.setComponent(Component.translatable(machine.getDefinition().getDescriptionId()));
             }
         }
-        for (Entry entry : entries) {
+        for (Entry entry : active) {
             Widget widget = findById(root, entry.id());
             if (widget != null) {
                 entry.binding().bind(widget, machine);
@@ -425,7 +551,8 @@ public class MachineUI {
 
     private EditableMachineUI editable() {
         if (editableUI == null) {
-            editableUI = new EditableMachineUI(groupName, uiPath, this::createDefaultTemplate, this::bind);
+            editableUI = new EditableMachineUI(groupName, uiPath, this::createDefaultTemplate, this::bind)
+                    .withOwner(this);
         }
         return editableUI;
     }
@@ -455,11 +582,7 @@ public class MachineUI {
      */
     @Nullable
     public static IItemTransfer resolveItemTransfer(MetaMachine machine, int index) {
-        BlockEntity blockEntity = blockEntityOf(machine);
-        if (blockEntity == null) {
-            return null;
-        }
-        IItemHandler handler = blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
+        IItemHandler handler = itemHandlerOf(machine);
         if (handler == null || index < 0 || index >= handler.getSlots()) {
             return null;
         }
@@ -469,15 +592,37 @@ public class MachineUI {
     /** 从机器所在方块实体上取流体能力并转成 LDLib 的 {@link IFluidTransfer}。 */
     @Nullable
     public static IFluidTransfer resolveFluidTransfer(MetaMachine machine, int index) {
-        BlockEntity blockEntity = blockEntityOf(machine);
-        if (blockEntity == null) {
-            return null;
-        }
-        IFluidHandler handler = blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, null).resolve().orElse(null);
+        IFluidHandler handler = fluidHandlerOf(machine);
         if (handler == null || index < 0 || index >= handler.getTanks()) {
             return null;
         }
         return new FluidTransferWrapper(handler);
+    }
+
+    /** 机器暴露的物品槽数量（没有物品能力时 0）。自动布局用它决定摆几个槽位。 */
+    public static int resolveItemSlotCount(MetaMachine machine) {
+        IItemHandler handler = itemHandlerOf(machine);
+        return handler == null ? 0 : handler.getSlots();
+    }
+
+    /** 机器暴露的储罐数量（没有流体能力时 0）。 */
+    public static int resolveFluidTankCount(MetaMachine machine) {
+        IFluidHandler handler = fluidHandlerOf(machine);
+        return handler == null ? 0 : handler.getTanks();
+    }
+
+    @Nullable
+    private static IItemHandler itemHandlerOf(MetaMachine machine) {
+        BlockEntity blockEntity = blockEntityOf(machine);
+        return blockEntity == null ? null
+                : blockEntity.getCapability(ForgeCapabilities.ITEM_HANDLER, null).resolve().orElse(null);
+    }
+
+    @Nullable
+    private static IFluidHandler fluidHandlerOf(MetaMachine machine) {
+        BlockEntity blockEntity = blockEntityOf(machine);
+        return blockEntity == null ? null
+                : blockEntity.getCapability(ForgeCapabilities.FLUID_HANDLER, null).resolve().orElse(null);
     }
 
     @Nullable
@@ -512,18 +657,23 @@ public class MachineUI {
         return tank;
     }
 
-    private static LabelWidget createLabel(int x, int y, String id, Supplier<Component> supplier) {
+    private static LabelWidget createLabel(int x, int y, String id, Function<MetaMachine, Component> supplier) {
         LabelWidget label = new LabelWidget(x, y, "");
         label.setTextColor(GuiTextures.COLOR_TEXT);
-        label.setTextProvider(() -> safeText(supplier));
+        label.setTextProvider(() -> plainOrEmpty(supplier.apply(null)));
         label.setId(id);
         return label;
     }
 
     /** 取值器返回 null 时给空串，免得 LDLib 的 LabelWidget 拿到 null 文本。 */
-    private static String safeText(Supplier<Component> supplier) {
-        Component component = supplier.get();
+    private static String plainOrEmpty(@Nullable Component component) {
         return component == null ? "" : component.getString();
+    }
+
+    /** 进度取值器返回 null 时按 0 处理。 */
+    private static double valueOrZero(Function<MetaMachine, Double> supplier, MetaMachine machine) {
+        Double value = supplier.apply(machine);
+        return value == null ? 0d : value;
     }
 
     /**

@@ -26,7 +26,7 @@ addon 工具链，全部在库内自洽；GTM 只作为「设计参考」，不�
 | 需求 | 包 | 说明 |
 |---|---|---|
 | ① 多方块注册 | `api.registry.builder.MultiblockMachineBuilder`、`api.machine.MultiblockMachineDefinition` | 结构图案必填、示例结构、外观方块、仓室外观与排序、拆机返还 |
-| ① 机器 UI 绘制 | `api.gui.MachineUI`、`api.gui.MachineUIWidget` | 流式装配器：背景/标题/槽位/储罐/进度条/文本/玩家背包；支持 `.mui` 自定义 UI |
+| ① 机器 UI 绘制 | `api.gui.MachineUI`、`api.gui.MachineUIWidget`、`api.gui.factory.MachineUIFactory` | 流式装配器：背景/标题/槽位/储罐/进度条/文本/玩家背包；**右键机器即开**；支持 `.mui` 自定义 UI |
 | ② 仓室注册 | `api.registry.builder.PartBuilder`、`api.machine.multiblock.PartAbility`、`api.machine.multiblock.part.MultiblockPartMachine` | 仓室 = 可被结构替换的一格；能力按「档位 → 方块」登记 |
 | ② 仓室 UI 绘制 | `api.gui.PartUI` | 简化版机器面板 |
 | ③ rtui 绘制 | `api.recipe.ui.RecipeTypeUI`、`api.gui.RecipeTypeUIWidgets`、`api.gui.editor.OGMRRecipeTypeUIProject` | 配方类型 UI；`.rtui` 工程可被 LDLib 编辑器打开并热重载 |
@@ -34,7 +34,9 @@ addon 工具链，全部在库内自洽；GTM 只作为「设计参考」，不�
 | ⑤ 配方注册 | `api.recipe.RecipeBuilder`、`api.recipe.OGMRRecipeSerializer` | 流式 builder + datagen（`FinishedRecipe`）+ 运行时配方表 |
 | ⑥ Addon 工具类 | `api.addon.@OGMRAddon`、`IOGMRAddon`、`AddonFinder`、`AddonBootstrap` | 注解扫描 + 固定阶段回调（对应 GTCEu 的 `@GTAddon`/`IGTAddon`） |
 | ⑥ JEI 多方块预览 | `integration.jei.*` | 多方块结构的多页预览、翻层/旋转、hover 显示方块名 |
-| ⑦ 能量系统 | `api.energy.*` | EU/FE/J 三单位（`EnergyUnit` 枚举）、换算按 Mekanism、能源仓尺寸由使用者注册 |
+| ⑦ 能量系统 | `api.energy.*` | `IEnergyType` 可扩展 + `EnergyTypes` 注册表；内置 EU/FE/AE/RF/J，换算系数按 Mekanism / AE2 / CoFH 核对；仓室尺寸由使用者注册 |
+| ⑦ 配方内容种类 | `api.recipe.content.*` | `IContentKind` 可扩展 + `ContentKinds` 注册表；内置物品/流体，第三方可加能量、魔力等 |
+| ⑦ 创造标签 | `api.registry.OGMRCreativeTab` | 一行给 addon 建物品栏标签（不建的话机器只能用 `/give` 拿） |
 | 模块化 | `modular.*` | 主机/单元/无线对接表；「模块物品决定等级」的多方块基类 |
 | 多线程 | `threading.*` | 一台多方块同时跑 N 条配方，线程仓提供线程数 |
 
@@ -388,7 +390,9 @@ gradlew runClient
 | 多线程 | 装几个线程仓就有几倍吞吐；面板逐线程显示进度 |
 | 能量系统 | 能源仓按 EU / RF 显示同一个存量；线缆可直接充能 |
 | 配方注册 | 三条配方同时可用；`gradlew runData` 会把它们写成数据包 JSON |
-| rtui / 机器 UI | `MachineUI` 装配的默认面板（背景、标题、进度、状态文本） |
+| rtui / 机器 UI | 右键任意机器都会开面板：多方块是「进度条 + 线程数文本」，仓室是「按仓储自动摆的槽位 + 状态文本」 |
+| UI 自动注册 | 日志里每台机器一行 `UI of ogmr:xxx = 176x166, entries=.., autoLayout=..`（`gradlew runData` 就能看到） |
+| 自定义配方内容种类 | `ogmr:test_recipes` 里的 `energy_charge` 配方，输入是自定义种类 `test_energy`（见 `TestContentKinds`） |
 | JEI 预览 | 装 JEI 后在 JEI 里能翻到「多方块结构」分类，看到这台机的 3×3×3 预览 |
 
 ### 9.4 语言文本
@@ -452,5 +456,83 @@ Forge 的 HashCache 会把「输出目录里不是本次生成出来的文件」
 
 **③ 写 datagen 代码时用 `BuiltInRegistries.BLOCK.get(id)` 取方块，不要用 `RegistryObject#get()`** ——
 后者在 datagen 环境还没解析，会抛上面那个 NPE。
+
+**④ 方块渲染方式默认必须是静态模型。** `MachineBlock#getRenderShape` 返回
+`ENTITYBLOCK_ANIMATED` 表示「静态模型别画、交给方块实体渲染器（BER）」—— 本库默认**不注册 BER**，
+所以那样写出来的机器在世界里**什么都不画**（看起来像「贴图是空的」，而物品栏里一切正常）。
+要动态渲染就先自己在客户端注册 BER，再在注册时声明 `.entityRenderer(true)`。
+
+---
+
+## 11. 机器界面（需求 ①）
+
+### 11.1 右键就能开，不用配
+
+注册任何机器（单方块 / 多方块 / 仓室）时，builder 都会保证它**有一个可打开的界面**：
+addon 什么都不写也照样能开 —— 没给 UI 时自动造一个零配置界面。
+
+```java
+// 自动界面 = 标题 + 玩家背包 + 右侧信息栏（MetaMachine#addDisplayText 的内容）
+//           + 按机器实际暴露的物品/流体仓储自动摆的槽位（最多 18 格物品 + 3 个储罐）
+REGISTRAR.part("lv_item_bus", ItemBusPartMachine::new)
+        .tier(OGMRValues.LV)
+        .abilities(PartAbility.IMPORT_ITEMS)
+        .register();     // ← 就这一行，右键即有 9 格物品总线面板
+```
+
+打通这条链路的三段（都在库里，addon 不用管）：
+
+1. `api.gui.factory.MachineUIFactory`（LDLib `UIFactory`）——把「打开哪台机器的界面」压成一个方块坐标同步给客户端；
+   由 `Ogmr` 构造期调用 `MachineUIFactory.register()` 注册。**漏注册的症状是「客户端收到包但界面打不开」。**
+2. `MetaMachine#tryToOpenUI` —— 服务端发起打开动作（`MachineBlock#use` 调它）；
+   `MetaMachine` 顺带实现了 LDLib 的 `IUIHolder`。
+3. `MetaMachine#createUI` —— 用 `MachineDefinition#getMachineUI()` 建 `ModularUI`。
+
+### 11.2 想要自己的布局
+
+```java
+.ui(MachineUI.create("maceration", MyIds.id("maceration"))
+        .title()
+        .itemSlot(26, 20, 0, true)
+        .itemSlot(26, 42, 1, false)
+        .progress(62, 33, 24, 16, ProgressDirection.LEFT_TO_RIGHT,
+                  machine -> machine instanceof MyMachine m ? m.getRecipeLogic().getProgressPercent() : 0d)
+        .text(8, 58, machine -> Component.translatable("mymod.maceration.hint"))
+        .playerInventory(8, 84))
+```
+
+- 动态文本/进度的取值器**带着机器**：一份 `MachineUI` 是所有同类机器共用的模板，装配时才知道是哪一台。
+- 槽位/储罐按《下标》绑定（`.itemSlot(x, y, index, output)`），仓储从方块实体的 Forge 能力上取；
+  拿不到能力时降级成纯背景占位框，不会崩也不会显示假数据。
+- 编辑器路线不变：`assets/<ns>/ui/machine/<path>.mui` 存在时优先用它反序列化 + 只做数据绑定
+  （LDLib 的 UI 编辑器产出，保存后调 `EditableMachineUI#reloadCustomUI()` 热重载）。
+- 默认的右侧信息栏贴在面板外，`ModularUI` 的尺寸会自动加上它（`MachineUIWidget#getFullWidth()`），
+  不想显示就 `setInfoPanelVisible(false)`。
+
+---
+
+## 12. 加一种自己的配方内容（`IContentKind`）
+
+物品和流体只是**两种内置实现**，不是写死的分支。第三方想加「能量 / 魔力 / 气体」：
+
+```java
+public static final IContentKind MANA = ContentKinds.register(new AbstractContentKind(
+        "mana", "Mana", "魔力") {
+
+    @Override public Codec<Content> codec() { return MANA_CODEC; }          // JSON 形状
+    @Override public void toNetwork(Content content, FriendlyByteBuf buf) { buf.writeVarInt(...); }
+    @Override public Content fromNetwork(FriendlyByteBuf buf) { return Content.of(this, buf.readVarInt(), 1, 1f); }
+    @Override public ItemStack representativeItem(Content content) { return MANA_BOTTLE.getDefaultInstance(); }
+});
+```
+
+要点：
+
+- 载荷放在 `Content#payload()` 里（`Content.of(kind, payload, count, chance)`）；内置两种用 `item()` / `fluid()`。
+- `Content#CODEC` 靠 `ContentKinds` 按 `"type"` 字段分派，**不认识的名字会直接报错**（不会静默当成物品）。
+- ⚠️ 注册必须早于数据包加载（一般放 mod 构造期），否则那种 `type` 的配方整条加载失败。
+- 语言键 `ogmr.content.kind.<id>` 由 `IContentKind#registerLang()` 生成（`ContentKinds#initLang()` 会带上已注册的全部）。
+- 库内部不再特判物品/流体：`OGMRRecipe#getItemInputs` 只是 `filter(ContentKinds.ITEM, ...)` 的便捷写法，
+  你自己那种内容用 `OGMRRecipe.filter(MANA, inputs)` 筛。
 
 
