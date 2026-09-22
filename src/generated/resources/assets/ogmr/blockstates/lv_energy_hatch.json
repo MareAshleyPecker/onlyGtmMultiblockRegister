@@ -1,40 +1,50 @@
 {
   "variants": {
     "active=false,facing=down": {
-      "model": "ogmr:block/lv_energy_hatch_port_down"
+      "model": "ogmr:block/lv_energy_hatch_port",
+      "x": 90
     },
     "active=false,facing=east": {
-      "model": "ogmr:block/lv_energy_hatch_port_east"
+      "model": "ogmr:block/lv_energy_hatch_port",
+      "y": 270
     },
     "active=false,facing=north": {
-      "model": "ogmr:block/lv_energy_hatch_port_north"
+      "model": "ogmr:block/lv_energy_hatch_port",
+      "y": 180
     },
     "active=false,facing=south": {
-      "model": "ogmr:block/lv_energy_hatch_port_south"
+      "model": "ogmr:block/lv_energy_hatch_port"
     },
     "active=false,facing=up": {
-      "model": "ogmr:block/lv_energy_hatch_port_up"
+      "model": "ogmr:block/lv_energy_hatch_port",
+      "x": -90
     },
     "active=false,facing=west": {
-      "model": "ogmr:block/lv_energy_hatch_port_west"
+      "model": "ogmr:block/lv_energy_hatch_port",
+      "y": 90
     },
     "active=true,facing=down": {
-      "model": "ogmr:block/lv_energy_hatch_act_port_down"
+      "model": "ogmr:block/lv_energy_hatch_act_port",
+      "x": 90
     },
     "active=true,facing=east": {
-      "model": "ogmr:block/lv_energy_hatch_act_port_east"
+      "model": "ogmr:block/lv_energy_hatch_act_port",
+      "y": 270
     },
     "active=true,facing=north": {
-      "model": "ogmr:block/lv_energy_hatch_act_port_north"
+      "model": "ogmr:block/lv_energy_hatch_act_port",
+      "y": 180
     },
     "active=true,facing=south": {
-      "model": "ogmr:block/lv_energy_hatch_act_port_south"
+      "model": "ogmr:block/lv_energy_hatch_act_port"
     },
     "active=true,facing=up": {
-      "model": "ogmr:block/lv_energy_hatch_act_port_up"
+      "model": "ogmr:block/lv_energy_hatch_act_port",
+      "x": -90
     },
     "active=true,facing=west": {
-      "model": "ogmr:block/lv_energy_hatch_act_port_west"
+      "model": "ogmr:block/lv_energy_hatch_act_port",
+      "y": 90
     }
   }
 }

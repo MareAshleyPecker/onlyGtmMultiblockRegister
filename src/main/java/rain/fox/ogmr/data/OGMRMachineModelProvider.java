@@ -16,6 +16,7 @@ import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraftforge.client.model.generators.BlockModelBuilder;
 import net.minecraftforge.client.model.generators.BlockStateProvider;
+import net.minecraftforge.client.model.generators.ConfiguredModel;
 import net.minecraftforge.common.data.ExistingFileHelper;
 
 import org.jetbrains.annotations.Nullable;
@@ -105,7 +106,29 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
     private static final float LAYER_STEP = 0.001f;
 
     /**
-     * 给「有贴在朝向那一面的层」的机器产出按状态挑模型的 blockstate。
+     * 层画在哪一面 —— 必须是 <b>SOUTH</b>。
+     *
+     * <p>
+     * 因为 blockstate 的旋转用的是原版 {@code BlockStateProvider#directionalBlock} 那套角度
+     * （{@code facing=north → y=180}），它假定模型的「正面」在 SOUTH 面。
+     * 换掉这个常量就必须同步换掉 {@link #directionalRotationX}/{@link #directionalRotationY}。
+     */
+    private static final Direction CANONICAL_FACE = Direction.SOUTH;
+
+    /**
+     * 给「有贴在朝向那一面的层」的机器产出 blockstate。
+     *
+     * <p>
+     * <b>每个「层组合」只出一份模型，方向交给 blockstate 的 {@code x}/{@code y} 旋转</b>
+     * —— 这就是原版（和 GTM）的做法：模型只画一次、朝固定的一面，六个朝向靠
+     * {@link ConfiguredModel} 的旋转复用同一份文件。所以一台仓室是「1 份模型 + 6 条变体」，
+     * 而不是「6 份朝向各异的模型」。
+     *
+     * <p>
+     * 旋转角度照抄 {@code BlockStateProvider#directionalBlock} 的算法：
+     * {@code rotationX = DOWN ? 90 : UP ? -90 : 0}、{@code rotationY = 水平方向 ? toYRot() : 0}。
+     * 这套算法假定<b>模型的「正面」在 SOUTH 面</b>（{@code facing=north} 时 {@code y=180} 正好把
+     * 南面转到北面），所以本类的层一律画在 {@link #CANONICAL_FACE} 上。
      *
      * <p>
      * 层序（从下到上）：底盘 → 正面覆盖层 → 成型层（{@code formed=true} 才画）→
@@ -115,7 +138,7 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
      * <p>
      * 变体键只写「真的会改变模型」的属性：有发光层才写 {@code active}、有成型层才写 {@code formed}
      * —— 原版语义里没写到的属性是通配符，所以既能覆盖全部状态组合，又不会凭空多出一堆变体。
-     * 每一条变体都是<b>完全指定</b>它写了的那几个属性，所以彼此不重叠（Forge 不允许重叠）。
+     * 每条变体都<b>完全指定</b>它写了的那几个属性，所以彼此不重叠（Forge 不允许重叠）。
      */
     private void registerLayeredVariants(MachineDefinition definition, Block block, ResourceLocation baseTexture) {
         RotationState rotation = definition.getRotationState();
@@ -128,6 +151,12 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
         boolean usesFormed = definition.getFormedOverlayTexture() != null;
         DirectionProperty property = rotation.getProperty();
 
+        // 模型与方向无关（层画在 CANONICAL_FACE），所以先按「层组合」把模型都建出来，再复用
+        BlockModelBuilder plain = layeredModel(definition, baseTexture, false, false);
+        BlockModelBuilder formedModel = usesFormed ? layeredModel(definition, baseTexture, false, true) : null;
+        BlockModelBuilder activeModel = usesActive ? layeredModel(definition, baseTexture, true, false) : null;
+        BlockModelBuilder bothModel = usesActive && usesFormed ? layeredModel(definition, baseTexture, true, true) : null;
+
         var variants = getVariantBuilder(block);
         for (Direction direction : Direction.values()) {
             if (!rotation.test(direction)) continue;
@@ -135,15 +164,30 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
                 boolean active = activeIndex == 1;
                 for (int formedIndex = 0; formedIndex < (usesFormed ? 2 : 1); formedIndex++) {
                     boolean formed = formedIndex == 1;
-                    BlockModelBuilder model = layeredModel(definition, direction, baseTexture, active, formed);
+                    BlockModelBuilder model = active && formed ? bothModel : active ? activeModel
+                            : formed ? formedModel : plain;
 
                     var partial = variants.partialState().with(property, direction);
                     if (usesActive) partial = partial.with(MachineBlock.ACTIVE, active);
                     if (usesFormed) partial = partial.with(MachineBlock.FORMED, formed);
-                    partial.modelForState().modelFile(model).addModel();
+                    partial.setModels(ConfiguredModel.builder()
+                            .modelFile(model)
+                            .rotationX(directionalRotationX(direction))
+                            .rotationY(directionalRotationY(direction))
+                            .build());
                 }
             }
         }
+    }
+
+    /** {@code BlockStateProvider#directionalBlock} 的 X 旋转：上/下两个朝向各转 90/-90，其余不转。 */
+    private static int directionalRotationX(Direction direction) {
+        return direction == Direction.DOWN ? 90 : direction == Direction.UP ? -90 : 0;
+    }
+
+    /** {@code BlockStateProvider#directionalBlock} 的 Y 旋转：水平方向用 {@link Direction#toYRot()}。 */
+    private static int directionalRotationY(Direction direction) {
+        return direction.getAxis().isHorizontal() ? (int) direction.toYRot() : 0;
     }
 
     /**
@@ -161,8 +205,11 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
      *
      * <p>层序（下 → 上）：正面覆盖层 → 成型层 → 发光层 → 口；后画的层更靠外，于是能盖住前面的层
      * （覆盖层是 cutout 的，透明像素被丢弃，所以下面的层在没画东西的地方依然看得见）。
+     *
+     * <p>方向参数已经没了：层一律画在 {@link #CANONICAL_FACE}，六个朝向由 blockstate 的
+     * {@code x}/{@code y} 旋转复用这一份模型（原版 / GTM 的做法）。
      */
-    private BlockModelBuilder layeredModel(MachineDefinition definition, Direction facing,
+    private BlockModelBuilder layeredModel(MachineDefinition definition,
                                            ResourceLocation baseTexture, boolean active, boolean formed) {
         List<Layer> layers = new ArrayList<>();
         if (definition.getOverlayTexture() != null) {
@@ -182,7 +229,6 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
         for (Layer layer : layers) {
             name.append('_').append(layer.namePart());
         }
-        name.append('_').append(facing.getName());
 
         BlockModelBuilder model = models().getBuilder(name.toString()).texture("all", baseTexture);
         if (definition.isPortCutout() || definition.isOverlayCutout()) {
@@ -201,7 +247,7 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
         // ①…各层：最上面那层贴着方块表面，往下每一层依次缩进 LAYER_STEP
         for (int i = 0; i < layers.size(); i++) {
             float plane = 16f - LAYER_STEP * (layers.size() - i);
-            addFaceLayer(model, facing, layers.get(i).textureKey(), layers.get(i).texture(), plane);
+            addFaceLayer(model, CANONICAL_FACE, layers.get(i).textureKey(), layers.get(i).texture(), plane);
         }
         return model;
     }

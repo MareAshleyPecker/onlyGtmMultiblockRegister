@@ -1,22 +1,27 @@
 {
   "variants": {
     "facing=down": {
-      "model": "ogmr:block/mv_thread_hatch_port_down"
+      "model": "ogmr:block/mv_thread_hatch_port",
+      "x": 90
     },
     "facing=east": {
-      "model": "ogmr:block/mv_thread_hatch_port_east"
+      "model": "ogmr:block/mv_thread_hatch_port",
+      "y": 270
     },
     "facing=north": {
-      "model": "ogmr:block/mv_thread_hatch_port_north"
+      "model": "ogmr:block/mv_thread_hatch_port",
+      "y": 180
     },
     "facing=south": {
-      "model": "ogmr:block/mv_thread_hatch_port_south"
+      "model": "ogmr:block/mv_thread_hatch_port"
     },
     "facing=up": {
-      "model": "ogmr:block/mv_thread_hatch_port_up"
+      "model": "ogmr:block/mv_thread_hatch_port",
+      "x": -90
     },
     "facing=west": {
-      "model": "ogmr:block/mv_thread_hatch_port_west"
+      "model": "ogmr:block/mv_thread_hatch_port",
+      "y": 90
     }
   }
 }

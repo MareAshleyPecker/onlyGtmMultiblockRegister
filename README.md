@@ -569,13 +569,24 @@ REGISTRAR.part("lv_item_input_bus", ItemBusPartMachine::new)
 
 ### 12.2 「口」怎么渲染：只画这一面，且在最上层
 
-`gradlew runData` 会给有口的机器产出（每台 4 或 6 份）：
+**方向不进模型文件**：一份模型只画一次（层固定在模型的 SOUTH 面），六个朝向由 blockstate 的
+`x`/`y` 旋转复用同一份文件 —— 这是原版 `BlockStateProvider#directionalBlock` 与 GTM 的做法，
+所以一台仓室是「**1 份模型 + 6 条变体**」，不是「6 份朝向各异的模型」。
 
 ```
-models/block/<name>_port_<方向>.json    ← 底盘整块 + 只在那一面有贴图的薄片
-blockstates/<name>.json                 ← "facing=north" → 上面那份模型，逐朝向挑
+models/block/<name>_port.json           ← 底盘整块 + 只在 SOUTH 面有贴图的薄片
+blockstates/<name>.json                 ← facing=north/south/east/west/up/down → 同一份模型 + 旋转
 models/item/<name>.json                 ← 物品栏仍用「底盘」模型（不带口）
 ```
+
+旋转角度照抄 Forge 的 `directionalBlock`（模型正面假定在 SOUTH）：
+
+| facing | 旋转 | facing | 旋转 |
+|---|---|---|---|
+| `south` | — | `up` | `x=-90` |
+| `north` | `y=180` | `down` | `x=90` |
+| `west` | `y=90` | | |
+| `east` | `y=270` | | |
 
 - **只这一面**：口的薄片**只定义朝外那一个 face**，其余 5 面不写 = 不渲染；
 - **最上层**：底盘整体缩进 `0.001×(层数+1)`、各层依次往外排到方块表面，所以后画的层永远盖住前面的；
@@ -609,10 +620,11 @@ REGISTRAR.multiblock("large_foundry", LargeFoundryMachine::new)
         .register();
 ```
 
-- 数据生成会把**朝向 × 成型 × 工作**的组合都产出来：例如
-  `models/block/<name>_ov_formed_act_east.json` = 底盘 + 正面层 + 成型层 + 发光层（东向）。
+- 数据生成会按「**层组合**」产出模型（方向不算，方向由旋转实现）：例如
+  `models/block/<name>_ov_formed_act.json` = 底盘 + 正面层 + 成型层 + 发光层，
   `blockstates/<name>.json` 里对应的变体键是 `facing=east,active=true,formed=true`。
-  用不到的属性不会出现在变体键里（原版语义：没写 = 通配符），所以变体数不会白白膨胀。
+  用不到的属性不会出现在变体键里（原版语义：没写 = 通配符），所以一个控制器最多也就 4 份模型
+  × 4~6 条朝向变体，不会文件爆炸。
 - 覆盖层默认走 `minecraft:cutout` 渲染层（`render_type`），这样带透明像素的贴图不会把底盘糊掉；
   全不透明的贴图可以 `.overlayCutout(false)` / `.portCutout(false)` 关掉。
 - 层与层之间靠「底盘整体缩进 + 每层依次靠外」实现前后关系：

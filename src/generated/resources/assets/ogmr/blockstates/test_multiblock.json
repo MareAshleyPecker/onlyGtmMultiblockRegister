@@ -1,52 +1,64 @@
 {
   "variants": {
     "active=false,facing=east,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_east"
+      "model": "ogmr:block/test_multiblock_ov",
+      "y": 270
     },
     "active=false,facing=east,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_east"
+      "model": "ogmr:block/test_multiblock_ov_formed",
+      "y": 270
     },
     "active=false,facing=north,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_north"
+      "model": "ogmr:block/test_multiblock_ov",
+      "y": 180
     },
     "active=false,facing=north,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_north"
+      "model": "ogmr:block/test_multiblock_ov_formed",
+      "y": 180
     },
     "active=false,facing=south,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_south"
+      "model": "ogmr:block/test_multiblock_ov"
     },
     "active=false,facing=south,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_south"
+      "model": "ogmr:block/test_multiblock_ov_formed"
     },
     "active=false,facing=west,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_west"
+      "model": "ogmr:block/test_multiblock_ov",
+      "y": 90
     },
     "active=false,facing=west,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_west"
+      "model": "ogmr:block/test_multiblock_ov_formed",
+      "y": 90
     },
     "active=true,facing=east,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_act_east"
+      "model": "ogmr:block/test_multiblock_ov_act",
+      "y": 270
     },
     "active=true,facing=east,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_act_east"
+      "model": "ogmr:block/test_multiblock_ov_formed_act",
+      "y": 270
     },
     "active=true,facing=north,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_act_north"
+      "model": "ogmr:block/test_multiblock_ov_act",
+      "y": 180
     },
     "active=true,facing=north,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_act_north"
+      "model": "ogmr:block/test_multiblock_ov_formed_act",
+      "y": 180
     },
     "active=true,facing=south,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_act_south"
+      "model": "ogmr:block/test_multiblock_ov_act"
     },
     "active=true,facing=south,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_act_south"
+      "model": "ogmr:block/test_multiblock_ov_formed_act"
     },
     "active=true,facing=west,formed=false": {
-      "model": "ogmr:block/test_multiblock_ov_act_west"
+      "model": "ogmr:block/test_multiblock_ov_act",
+      "y": 90
     },
     "active=true,facing=west,formed=true": {
-      "model": "ogmr:block/test_multiblock_ov_formed_act_west"
+      "model": "ogmr:block/test_multiblock_ov_formed_act",
+      "y": 90
     }
   }
 }
