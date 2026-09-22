@@ -9,6 +9,7 @@ import rain.fox.ogmr.api.lang.OGMRLang;
 import rain.fox.ogmr.api.machine.IMachineBlockEntity;
 import rain.fox.ogmr.api.machine.MachineDefinition;
 import rain.fox.ogmr.api.machine.MetaMachine;
+import rain.fox.ogmr.api.machine.RotationState;
 import rain.fox.ogmr.api.recipe.OGMRRecipeType;
 import rain.fox.ogmr.api.registry.MachineRegistrar;
 import rain.fox.ogmr.api.registry.OGMRRegistries;
@@ -91,6 +92,12 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
     protected rain.fox.ogmr.api.gui.MachineUI machineUI;
     /** 方块是否交给 BER 渲染（默认 false = 静态模型）。 */
     protected boolean useEntityRenderer;
+    /** 朝向设定（默认水平四向；仓室在 {@code PartBuilder} 里改成六向）。 */
+    protected RotationState rotationState = RotationState.Y_AXIS;
+    /** 「口」的贴图；null = 没有口。 */
+    protected ResourceLocation portTexture;
+    /** 口是否走 cutout 渲染层（有 alpha 的贴图必须开）。 */
+    protected boolean portCutout = true;
     /** 英文显示名；null = datagen 时按 id 自动推导。 */
     protected String langValue;
     /** 中文显示名；null = 中文语言文件里回退成英文。 */
@@ -245,6 +252,44 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
     }
 
     /**
+     * 设置朝向能力（{@link RotationState}）。
+     *
+     * <p>
+     * 默认 {@link RotationState#Y_AXIS}（水平四向）；仓室在 {@code PartBuilder} 里默认是
+     * {@link RotationState#ALL}（六向 —— 口能朝墙，也能朝地板/天花板）。
+     * 不管哪种，摆放时朝向都<b>对着玩家</b>（见 {@code MachineBlock#getStateForPlacement}）。
+     */
+    public B rotation(RotationState rotationState) {
+        this.rotationState = rotationState == null ? RotationState.NONE : rotationState;
+        return self();
+    }
+
+    /**
+     * 给机器加一个「口」（仓室的开口面）。
+     *
+     * <p>
+     * 口<b>只画在朝向那一面</b>，并且叠在底盘之上（模型里是一块比 16 稍微凸出 0.002 的薄片）。
+     * 数据生成会按朝向产出多份「底盘 + 口」的模型，blockstate 按 {@code facing} 选对应那份。
+     *
+     * <p>贴图作者自己给；不传就用本库自带的兜底贴图 {@link MachineDefinition#DEFAULT_PORT_TEXTURE}。
+     */
+    public B port(ResourceLocation portTexture) {
+        this.portTexture = portTexture != null ? portTexture : MachineDefinition.DEFAULT_PORT_TEXTURE;
+        return self();
+    }
+
+    /** 用本库自带的兜底贴图开一个「口」。 */
+    public B port() {
+        return port(MachineDefinition.DEFAULT_PORT_TEXTURE);
+    }
+
+    /** 口是否走 {@code cutout} 渲染层（默认 true；贴图完全不透明时可以关掉）。 */
+    public B portCutout(boolean portCutout) {
+        this.portCutout = portCutout;
+        return self();
+    }
+
+    /**
      * 指定中英显示名 —— 一个机器名同时管住 {@code en_us} 与 {@code zh_cn}。
      *
      * <p>
@@ -286,10 +331,23 @@ public class MachineBuilder<D extends MachineDefinition, B extends MachineBuilde
         definition.setShape(shape);
         definition.setMachineSupplier(machineFactory::apply);
         definition.setDefaultPaintingColor(defaultPaintingColor);
+        definition.setRotationState(rotationState);
+        definition.setPortCutout(portCutout);
+        if (portTexture != null) definition.setPortTexture(portTexture);
 
         // 方块 / 物品 / 方块实体
-        this.blockObject = registrar.blocks().register(name,
-                () -> new MachineBlock(machineBlockProperties(), definition));
+        // ⚠️ 「当前正在构造的定义」必须在**真正 new 方块的那一刻**标好，而不是在这里标一下就好：
+        //    Forge 的 DeferredRegister 是懒构造的（要到 RegisterEvent 才调这个 supplier），
+        //    而原版 Block 的构造器里就会调 createBlockStateDefinition（状态表必须在 super() 里建好），
+        //    那时 MachineBlock 自己的 definition 字段还没赋值，只能走这个静态引用。
+        this.blockObject = registrar.blocks().register(name, () -> {
+            MachineDefinition.beginBuild(definition);
+            try {
+                return new MachineBlock(machineBlockProperties(), definition);
+            } finally {
+                MachineDefinition.endBuild();
+            }
+        });
         if (!noItem) {
             this.itemObject = registrar.items().register(name,
                     () -> new MachineItem(definition, new Item.Properties()));

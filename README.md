@@ -518,12 +518,70 @@ REGISTRAR.part("lv_item_bus", ItemBusPartMachine::new)
 - 生成器：`tools/GuiTextureGenerator.java`（JDK 17 直接跑单文件源码）
 
   ```bash
-  java tools/GuiTextureGenerator.java          # 默认写到 src/main/resources/assets/ogmr/textures/gui
+  java tools/GuiTextureGenerator.java          # 默认写到 src/main/resources/assets/ogmr/textures
   ```
 
   改配色就改生成器顶部的常量再跑一次；尺寸/切片宽度必须和 `GuiTextures` 的声明一致。
 - 想完全不依赖这些 png（例如全部换用自己的美术），客户端初始化时调一次
   `GuiTextures.setForceFallback(true)`，所有访问器会改用「纯色铺底 + 描边」的代码贴图。
+- 生成器顺带产出仓室「口」的兜底贴图 `assets/ogmr/textures/block/machine/port_default.png`（见 §13）。
+
+---
+
+## 13. 仓室的朝向与「口」（port facing）
+
+### 13.1 朝向设定 `RotationState`
+
+| 值 | 方块状态属性 | 谁在用 |
+|---|---|---|
+| `NONE` | 无 | 外壳、没有正面的方块 |
+| `Y_AXIS` | 原版 `horizontal_facing`（4 向） | 普通机器、多方块控制器（**默认**） |
+| `ALL` | 原版 `facing`（6 向） | **仓室**（`PartBuilder` 默认就给这个） |
+
+```java
+REGISTRAR.part("lv_item_input_bus", ItemBusPartMachine::new)
+        .tier(OGMRValues.LV)
+        .abilities(PartAbility.IMPORT_ITEMS)
+        .port()                       // ← 开一个「口」；贴图不写就用库自带那张
+        .register();
+```
+
+**摆放朝向**（照 GTM `MetaMachineBlock#getStateForPlacement` 的规则）：玩家放置时朝向
+= `player.getDirection().getOpposite()`，也就是**口正对着玩家**；若玩家站在方块正上/正下方附近
+朝下/朝上放，且该方块是 `ALL`（仓室），则改成朝 `UP` / `DOWN` —— 仓室摆在地板、天花板上时口也朝外。
+
+> ⚠️ `ALL` 用的属性对象是原版 `facing`，和 `MachineBlock.FACING`（水平四向那个常量）**不是同一个属性**。
+> 读朝向一律走 `definition.getFacing(state)`：
+>
+> ```java
+> Direction facing = def.getFacing(level.getBlockState(pos));   // ✅ NONE 时给 NORTH，不抛异常
+> // state.getValue(MachineBlock.FACING)                        // ❌ 对六向仓室抛 IllegalArgumentException
+> ```
+
+### 13.2 「口」怎么渲染：只画这一面，且在最上层
+
+`gradlew runData` 会给有口的机器产出（每台 4 或 6 份）：
+
+```
+models/block/<name>_port_<方向>.json    ← 底盘整块 + 只在那一面有贴图的薄片（比 16 凸出 0.002）
+blockstates/<name>.json                 ← "facing=north" → 上面那份模型，逐朝向挑
+models/item/<name>.json                 ← 物品栏仍用「底盘」模型（不带口）
+```
+
+- **只这一面**：口的薄片**只定义朝外那一个 face**，其余 5 面不写 = 不渲染；
+- **最上层**：薄片几何上比方块表面凸出 `0.002` 格，深度测试必胜，永远盖在底盘之上；
+- **alpha**：默认 `render_type: minecraft:cutout`（口贴图带透明像素时必需）；
+  贴图完全不透明时用 `.portCutout(false)` 关掉。
+
+贴图由作者自己给：`.port(你自己的贴图)`。不写参数就是本库自带的兜底贴图
+（`MachineDefinition.DEFAULT_PORT_TEXTURE`，一张深色描边的「开口」图，随时可换）。
+
+### 13.3 已知边界
+
+- 口固定在**朝向那一面**（不再单独开第二个属性）—— 想让口在别的面，就改朝向；
+- `RotationState.NONE` + `.port()` 会打一条 warn 并跳过口的模型（没有朝向就表达不出口在哪一面）；
+- 物品模型与 JEI 预览都用底盘模型，所以预览里看不到口（进世界才看得到）。
+
 
 ---
 

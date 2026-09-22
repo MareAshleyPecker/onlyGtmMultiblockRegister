@@ -1,6 +1,5 @@
 package rain.fox.ogmr.api.machine.multiblock;
 
-import rain.fox.ogmr.api.block.MachineBlock;
 import rain.fox.ogmr.api.machine.IMachineBlockEntity;
 import rain.fox.ogmr.api.machine.MetaMachine;
 import rain.fox.ogmr.api.machine.MultiblockMachineDefinition;
@@ -17,7 +16,6 @@ import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.state.BlockState;
 
 import lombok.Getter;
 
@@ -127,24 +125,21 @@ public class MultiblockControllerMachine extends MetaMachine implements IMultiCo
 
     // ═══════════════ 朝向（IPatternFacingProvider） ═══════════════
 
-    /** 控制器正面朝向：取方块状态的 {@code facing} 属性，没有则 NORTH。 */
+    /** 控制器正面朝向：按定义声明的朝向属性读，没朝向属性就是 NORTH。 */
     @Override
     public Direction getFrontFacing() {
         Level level = getLevel();
         if (level != null) {
-            BlockState state = level.getBlockState(getPos());
-            if (state.hasProperty(MachineBlock.FACING)) {
-                return state.getValue(MachineBlock.FACING);
-            }
+            return getDefinition().getFacing(level.getBlockState(getPos()));
         }
         return Direction.NORTH;
     }
 
-    /** 机器方块带 {@code facing} 属性时才算「有固定朝向」（否则图案按四个水平方向各试一次）。 */
+    /** 机器方块带朝向属性时才算「有固定朝向」（否则图案按四个水平方向各试一次）。 */
     @Override
     public boolean hasFrontFacing() {
         Level level = getLevel();
-        return level != null && level.getBlockState(getPos()).hasProperty(MachineBlock.FACING);
+        return level != null && getDefinition().hasFacing();
     }
 
     /** 本库精简版不支持「上朝向」，恒为 NORTH。 */

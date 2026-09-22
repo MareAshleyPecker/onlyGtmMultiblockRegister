@@ -67,21 +67,51 @@ public final class GuiTextureGenerator {
     private static final int PROGRESS_FILLED = 0xFF3F8F3F;
     private static final int PROGRESS_FILLED_LIGHT = 0xFF6FC46F;
 
+    /** 「口」兜底贴图的配色。 */
+    private static final int PORT_FRAME = 0xFF101010;
+    private static final int PORT_BEVEL = 0xFF7A7A7A;
+    private static final int PORT_BODY = 0xFF242424;
+    private static final int PORT_BAR = 0xFF8B8B8B;
+
     private GuiTextureGenerator() {}
 
     public static void main(String[] args) throws IOException {
-        File root = new File(args.length > 0 ? args[0] : "src/main/resources/assets/ogmr/textures/gui");
+        // 默认写到 assets/ogmr/textures 根；下面按 gui/ 与 block/ 分目录
+        File root = new File(args.length > 0 ? args[0] : "src/main/resources/assets/ogmr/textures");
 
-        write(root, "base/background.png", panel(16, PANEL_FILL, PANEL_BORDER, PANEL_LIGHT, PANEL_DARK));
-        write(root, "base/info_background.png", panel(16, INFO_FILL, INFO_BORDER, INFO_BORDER, INFO_FILL));
-        write(root, "base/slot.png", slot(18, SLOT_FILL, SLOT_SHADOW, SLOT_HIGHLIGHT));
-        write(root, "base/fluid_slot.png", panel(18, FLUID_FILL, FLUID_BORDER, FLUID_BORDER, FLUID_FILL));
-        write(root, "recipe_type/base.png", panel(16, RTUI_FILL, RTUI_BORDER, RTUI_BORDER, RTUI_FILL));
-        write(root, "recipe_type/slot.png", slot(18, SLOT_FILL, SLOT_SHADOW, SLOT_HIGHLIGHT));
-        write(root, "progress/bar_background.png", bar(32, 16, PROGRESS_EMPTY, PROGRESS_EMPTY_BORDER));
-        write(root, "progress/bar_filled.png", bar(32, 16, PROGRESS_FILLED, PROGRESS_FILLED_LIGHT));
+        write(root, "gui/base/background.png", panel(16, PANEL_FILL, PANEL_BORDER, PANEL_LIGHT, PANEL_DARK));
+        write(root, "gui/base/info_background.png", panel(16, INFO_FILL, INFO_BORDER, INFO_BORDER, INFO_FILL));
+        write(root, "gui/base/slot.png", slot(18, SLOT_FILL, SLOT_SHADOW, SLOT_HIGHLIGHT));
+        write(root, "gui/base/fluid_slot.png", panel(18, FLUID_FILL, FLUID_BORDER, FLUID_BORDER, FLUID_FILL));
+        write(root, "gui/recipe_type/base.png", panel(16, RTUI_FILL, RTUI_BORDER, RTUI_BORDER, RTUI_FILL));
+        write(root, "gui/recipe_type/slot.png", slot(18, SLOT_FILL, SLOT_SHADOW, SLOT_HIGHLIGHT));
+        write(root, "gui/progress/bar_background.png", bar(32, 16, PROGRESS_EMPTY, PROGRESS_EMPTY_BORDER));
+        write(root, "gui/progress/bar_filled.png", bar(32, 16, PROGRESS_FILLED, PROGRESS_FILLED_LIGHT));
 
-        System.out.println("ogmr: GUI textures written under " + root.getAbsolutePath());
+        // 方块贴图：仓室「口」的兜底贴图（MachineDefinition.DEFAULT_PORT_TEXTURE = ogmr:block/machine/port_default）
+        write(root, "block/machine/port_default.png", port());
+
+        System.out.println("ogmr: textures written under " + root.getAbsolutePath());
+    }
+
+    /**
+     * 「口」的兜底贴图：深色外框 + 内侧高光 + 中间两道横杠，看起来像一个开口。
+     *
+     * <p>作者要换自己的美术，就在注册时写 {@code .port(自己的贴图)}，不用动这张。
+     */
+    private static BufferedImage port() {
+        BufferedImage image = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
+        fill(image, PORT_BODY);
+        line(image, 1, 1, 14, true, PORT_BEVEL);
+        line(image, 1, 1, 14, false, PORT_BEVEL);
+        for (int y = 6; y <= 7; y++) {
+            line(image, 3, y, 10, true, PORT_BAR);
+        }
+        for (int y = 10; y <= 11; y++) {
+            line(image, 3, y, 10, true, PORT_BAR);
+        }
+        rect(image, 0, 0, 16, 16, PORT_FRAME);
+        return image;
     }
 
     /**

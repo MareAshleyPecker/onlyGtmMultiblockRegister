@@ -2,14 +2,17 @@ package rain.fox.ogmr.data;
 
 import rain.fox.ogmr.Ogmr;
 import rain.fox.ogmr.api.machine.MachineDefinition;
+import rain.fox.ogmr.api.machine.RotationState;
 import rain.fox.ogmr.api.registry.OGMRRegistries;
 import rain.fox.ogmr.utils.ResourceLocations;
 
+import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.data.PackOutput;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.properties.DirectionProperty;
 import net.minecraftforge.client.model.generators.BlockModelBuilder;
 import net.minecraftforge.client.model.generators.BlockStateProvider;
 import net.minecraftforge.common.data.ExistingFileHelper;
@@ -76,14 +79,95 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
                     ? definition.getModelTexture()
                     : fallbackTexture;
             BlockModelBuilder model = models().cubeAll(id.getPath(), texture);
-            // blockstates/<name>.json + models/block/<name>.json
-            simpleBlock(block, model);
+            if (definition.hasPort()) {
+                // 有「口」的机器：blockstate 按朝向挑模型（口只画在朝向那一面）。
+                // ⚠️ 不能再走 simpleBlock —— 那会写一条 catch-all 变体，和「按朝向」的变体重叠，
+                //    Forge 会直接抛 "Cannot set models for a state for which a partial match has already been"。
+                registerPortVariants(definition, block, texture);
+            } else {
+                // blockstates/<name>.json + models/block/<name>.json（catch-all：所有状态同一个模型）
+                simpleBlock(block, model);
+            }
             // models/item/<name>.json（物品栏里显示的模型）—— 1.20.1 的 simpleBlock 不会自动带，
-            // 得显式补一次，否则机器物品在物品栏里是紫黑块。
+            // 得显式补一次，否则机器物品在物品栏里是紫黑块。物品一律用「底盘」那个模型。
             simpleBlockItem(block, model);
             count++;
         }
         Ogmr.LOGGER.info("ogmr: generated block models for {} machine(s) of '{}'", count, modId);
+    }
+
+    /** 口离方块表面的外凸量（格）—— 小到看不见厚度，但足以在深度测试里赢过底盘那一面。 */
+    private static final float PORT_OFFSET = 0.002f;
+
+    /**
+     * 给有「口」的机器产出「按朝向挑模型」的 blockstate。
+     *
+     * <p>
+     * 每个允许的朝向各生成一份自包含模型 {@code models/block/<name>_port_<dir>.json}：
+     * 底盘整块 + 一块只在那一面有贴图的薄片（比 16 凸出 {@link #PORT_OFFSET} → 口永远在最上层）。
+     * 覆盖掉 {@link #simpleBlock} 刚写的 catch-all 变体（同一份 blockstate JSON，后者胜）。
+     *
+     * <p>变体键只写 {@code facing=...}：{@code active}/{@code formed} 不写就是通配符（原版语义），
+     * 于是 4（或 6）条变体就覆盖了全部状态组合。
+     */
+    private void registerPortVariants(MachineDefinition definition, Block block, ResourceLocation baseTexture) {
+        RotationState rotation = definition.getRotationState();
+        if (!rotation.hasFacing()) {
+            Ogmr.LOGGER.warn("ogmr: {} 声明了口，但朝向设定是 NONE —— 口的朝向表达不出来",
+                    ResourceLocations.pathOf(definition.getId()));
+            return;
+        }
+        ResourceLocation portTexture = definition.getPortTexture();
+        DirectionProperty property = rotation.getProperty();
+
+        var variants = getVariantBuilder(block);
+        for (Direction direction : Direction.values()) {
+            if (!rotation.test(direction)) continue;
+            BlockModelBuilder model = portModel(definition, direction, baseTexture, portTexture);
+            variants.partialState().with(property, direction)
+                    .modelForState().modelFile(model).addModel();
+        }
+    }
+
+    /**
+     * 造一份「底盘 + 口」的模型。
+     *
+     * <p>
+     * ⚠️ 不能写成 {@code cubeAll(...).element()...}：MC 的模型继承里<b>子模型一旦自带 elements，
+     * 父模型的 elements 会被整个替换</b>，那样底盘就没了。所以两份元素都自己写。
+     */
+    private BlockModelBuilder portModel(MachineDefinition definition, Direction portSide,
+                                        ResourceLocation baseTexture, ResourceLocation portTexture) {
+        String name = "%s_port_%s".formatted(definition.getId().getPath(), portSide.getName());
+        BlockModelBuilder model = models().getBuilder(name)
+                .texture("all", baseTexture)
+                .texture("port", portTexture);
+        if (definition.isPortCutout()) {
+            model.renderType("cutout");
+        }
+
+        // ① 底盘：整块，六面同一个贴图
+        model.element()
+                .from(0, 0, 0)
+                .to(16, 16, 16)
+                .allFaces((dir, face) -> face.texture("#all"))
+                .end();
+
+        // ② 口：贴在朝向那一面的薄片，只定义朝外那一个面（其余 5 面不写 = 不渲染 → 「只渲染这一面」）
+        float min = 16f - PORT_OFFSET;
+        float max = 16f + PORT_OFFSET;
+        var port = model.element();
+        switch (portSide) {
+            case DOWN -> port.from(0, -PORT_OFFSET, 0).to(16, PORT_OFFSET, 16);
+            case UP -> port.from(0, min, 0).to(16, max, 16);
+            case NORTH -> port.from(0, 0, -PORT_OFFSET).to(16, 16, PORT_OFFSET);
+            case SOUTH -> port.from(0, 0, min).to(16, 16, max);
+            case WEST -> port.from(-PORT_OFFSET, 0, 0).to(PORT_OFFSET, 16, 16);
+            case EAST -> port.from(min, 0, 0).to(max, 16, 16);
+        }
+        port.face(portSide).texture("#port").end().end();
+
+        return model;
     }
 
     /**

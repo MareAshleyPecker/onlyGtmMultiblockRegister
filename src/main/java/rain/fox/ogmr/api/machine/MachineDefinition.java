@@ -2,6 +2,7 @@ package rain.fox.ogmr.api.machine;
 
 import com.lowdragmc.lowdraglib.utils.ShapeUtils;
 import rain.fox.ogmr.api.recipe.OGMRRecipeType;
+import rain.fox.ogmr.utils.ResourceLocations;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -17,6 +18,8 @@ import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.shapes.Shapes;
 import net.minecraft.world.phys.shapes.VoxelShape;
+
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -108,6 +111,59 @@ public class MachineDefinition implements Supplier<Block> {
     @Getter
     @Setter
     private ResourceLocation modelTexture;
+
+    // ═══════════════ 朝向 / 「口」 ═══════════════
+
+    /** 朝向设定（默认 {@link RotationState#Y_AXIS}；仓室由 {@code PartBuilder} 改成 {@link RotationState#ALL}）。 */
+    @Getter
+    private RotationState rotationState = RotationState.Y_AXIS;
+
+    /**
+     * 「口」（仓室的开口面）的贴图；{@code null} = 没有口。
+     *
+     * <p>
+     * 非空时数据生成会额外产出 4（或 6）个「底盘 + 口」的模型，并让 blockstate 按朝向挑模型 ——
+     * 于是口<b>只画在朝向那一面</b>，而且贴在底盘之上（几何上比 16 稍微凸出一点点，深度测试必胜）。
+     * 贴图由使用者在自己的资源包里给（本库附赠一张 {@link #DEFAULT_PORT_TEXTURE} 兜底）。
+     */
+    @Getter
+    @Nullable
+    private ResourceLocation portTexture;
+
+    /** 口的贴图是否需要 alpha（默认 true → 模型用 {@code cutout} 渲染层）。 */
+    @Getter
+    private boolean portCutout = true;
+
+    /** 本库自带的兜底「口」贴图（纯色描边；作者可以直接换掉）。 */
+    public static final ResourceLocation DEFAULT_PORT_TEXTURE = ResourceLocations.ogmr("block/machine/port_default");
+
+    /**
+     * 正在构造的机器定义 —— 给 {@code MachineBlock} 的构造器用。
+     *
+     * <p>
+     * ⚠️ 这不是多此一举：原版 {@code Block} 的构造器里就会调 {@code createBlockStateDefinition}
+     * （方块状态表必须在 {@code super()} 里就建好），那时候子类字段（{@code MachineBlock.definition}）
+     * 还没赋值，只能走这个静态引用。GTM 的 {@code MachineDefinition.getBuilt()} 是同一招，
+     * 由 {@code MachineBuilder#register()} 在「建方块」前后包一下。
+     */
+    @Nullable
+    private static volatile MachineDefinition building;
+
+    /** 取「正在构造的机器定义」；不在构造期时为 {@code null}。 */
+    @Nullable
+    public static MachineDefinition getBuilt() {
+        return building;
+    }
+
+    /** 标记进入「构造某个定义的方块」阶段（由 builder 调用，别自己用）。 */
+    public static void beginBuild(MachineDefinition definition) {
+        building = definition;
+    }
+
+    /** 结束构造阶段。 */
+    public static void endBuild() {
+        building = null;
+    }
     /** 物品 tooltip 的附加行生成器（第二个参数是待追加的列表）。 */
     @Getter
     @Setter
@@ -225,6 +281,51 @@ public class MachineDefinition implements Supplier<Block> {
     public MachineDefinition setUseEntityRenderer(boolean useEntityRenderer) {
         this.useEntityRenderer = useEntityRenderer;
         return this;
+    }
+
+    // ═══════════════ 朝向 / 口 ═══════════════
+
+    /** 链条版：设置朝向设定。 */
+    public MachineDefinition setRotationState(RotationState rotationState) {
+        this.rotationState = rotationState == null ? RotationState.NONE : rotationState;
+        return this;
+    }
+
+    /** 是否有朝向属性（{@link RotationState#NONE} 时为 false）。 */
+    public boolean hasFacing() {
+        return rotationState.hasFacing();
+    }
+
+    /**
+     * 从方块状态里读朝向 —— <b>读朝向一律走这里</b>。
+     *
+     * <p>
+     * 因为朝向属性是随 {@link RotationState} 变的（{@code Y_AXIS} 用 {@code horizontal_facing}、
+     * {@code ALL} 用 {@code facing}），直接 {@code state.getValue(MachineBlock.FACING)} 对
+     * 六向的仓室会抛 {@code IllegalArgumentException}。
+     */
+    public Direction getFacing(BlockState state) {
+        if (!rotationState.hasFacing() || state == null || !state.hasProperty(rotationState.getProperty())) {
+            return Direction.NORTH;
+        }
+        return state.getValue(rotationState.getProperty());
+    }
+
+    /** 链条版：设置「口」的贴图（传 {@code null} 表示没有口）。 */
+    public MachineDefinition setPortTexture(@Nullable ResourceLocation portTexture) {
+        this.portTexture = portTexture;
+        return this;
+    }
+
+    /** 链条版：设置「口」是否走 cutout 渲染层。 */
+    public MachineDefinition setPortCutout(boolean portCutout) {
+        this.portCutout = portCutout;
+        return this;
+    }
+
+    /** 是否有「口」。 */
+    public boolean hasPort() {
+        return portTexture != null;
     }
 
     // ═══════════════ 外观 / 碰撞箱 ═══════════════

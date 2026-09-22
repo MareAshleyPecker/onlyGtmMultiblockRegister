@@ -2,6 +2,7 @@ package rain.fox.ogmr.api.registry.builder;
 
 import rain.fox.ogmr.api.machine.IMachineBlockEntity;
 import rain.fox.ogmr.api.machine.MachineDefinition;
+import rain.fox.ogmr.api.machine.RotationState;
 import rain.fox.ogmr.api.machine.multiblock.PartAbility;
 import rain.fox.ogmr.api.machine.multiblock.part.MultiblockPartMachine;
 import rain.fox.ogmr.api.registry.MachineRegistrar;
@@ -38,6 +39,8 @@ public class PartBuilder<D extends MachineDefinition, B extends PartBuilder<D, B
 
         // 仓室默认不遮挡、硬度低一点，外观由 addon 自己定
         blockProperties(3.0f, 3.0f);
+        // 仓室的「口」要能朝墙、也能朝地板/天花板，所以默认六向（普通机器是水平四向）
+        rotation(RotationState.ALL);
     }
 
     /** 登记能力（可多次调用累加）。 */

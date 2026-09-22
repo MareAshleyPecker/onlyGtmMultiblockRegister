@@ -1,7 +1,22 @@
 {
   "variants": {
-    "": {
-      "model": "ogmr:block/lv_item_input_bus"
+    "facing=down": {
+      "model": "ogmr:block/lv_item_input_bus_port_down"
+    },
+    "facing=east": {
+      "model": "ogmr:block/lv_item_input_bus_port_east"
+    },
+    "facing=north": {
+      "model": "ogmr:block/lv_item_input_bus_port_north"
+    },
+    "facing=south": {
+      "model": "ogmr:block/lv_item_input_bus_port_south"
+    },
+    "facing=up": {
+      "model": "ogmr:block/lv_item_input_bus_port_up"
+    },
+    "facing=west": {
+      "model": "ogmr:block/lv_item_input_bus_port_west"
     }
   }
 }

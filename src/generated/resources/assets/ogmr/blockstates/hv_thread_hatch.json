@@ -1,7 +1,22 @@
 {
   "variants": {
-    "": {
-      "model": "ogmr:block/hv_thread_hatch"
+    "facing=down": {
+      "model": "ogmr:block/hv_thread_hatch_port_down"
+    },
+    "facing=east": {
+      "model": "ogmr:block/hv_thread_hatch_port_east"
+    },
+    "facing=north": {
+      "model": "ogmr:block/hv_thread_hatch_port_north"
+    },
+    "facing=south": {
+      "model": "ogmr:block/hv_thread_hatch_port_south"
+    },
+    "facing=up": {
+      "model": "ogmr:block/hv_thread_hatch_port_up"
+    },
+    "facing=west": {
+      "model": "ogmr:block/hv_thread_hatch_port_west"
     }
   }
 }

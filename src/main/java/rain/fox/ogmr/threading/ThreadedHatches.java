@@ -122,6 +122,8 @@ public final class ThreadedHatches {
         // 名字跟着档位走：LV / MV / HV … 线程仓
         builder.langValue(OGMRValues.tierNameRaw(clampedTier) + " Thread Hatch",
                 OGMRValues.tierNameRaw(clampedTier) + " 线程仓");
+        // 线程仓也是仓室：给一个「口」（只画在朝向那一面，摆放时对着玩家）
+        builder.port();
 
         // ⚠️ 这里**刻意不接** register() 的返回值，而是注册完再从注册表按 id 取回定义：
         // 并行开发的 MachineRegistrar#part(...) 目前把 PartBuilder 的定义类型参数 D 写成了

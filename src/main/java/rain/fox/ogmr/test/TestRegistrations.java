@@ -165,6 +165,8 @@ public final class TestRegistrations {
                 .abilities(PartAbility.IMPORT_ITEMS)
                 .tooltips(Component.translatable("block.ogmr.lv_item_input_bus.tooltip"))
                 .langValue("Test Item Input Bus", "测试物品输入总线")
+                // 「口」：只画在朝向那一面，摆放时对着玩家（仓室默认六向，地板/天花板上也对得上）
+                .port()
                 .modelTexture(vanillaTexture("iron_block"))
                 .register();
 
@@ -174,6 +176,7 @@ public final class TestRegistrations {
                 .abilities(PartAbility.EXPORT_ITEMS)
                 .tooltips(Component.translatable("block.ogmr.lv_item_output_bus.tooltip"))
                 .langValue("Test Item Output Bus", "测试物品输出总线")
+                .port()
                 .modelTexture(vanillaTexture("iron_block"))
                 .register();
 
@@ -184,6 +187,7 @@ public final class TestRegistrations {
                 .tier(OGMRValues.LV)
                 .abilities(PartAbility.INPUT_ENERGY)
                 .langValue("Test Energy Input Hatch (EU display)", "测试能源输入仓（按 EU 显示）")
+                .port()
                 .modelTexture(vanillaTexture("copper_block"))
                 .register();
 
@@ -193,6 +197,7 @@ public final class TestRegistrations {
                 .tier(OGMRValues.LV)
                 .abilities(PartAbility.OUTPUT_ENERGY)
                 .langValue("Test Energy Output Hatch (RF display)", "测试能源输出仓（按 RF 显示）")
+                .port()
                 .modelTexture(vanillaTexture("copper_block"))
                 .register();
 
