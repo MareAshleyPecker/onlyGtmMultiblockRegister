@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "ogmr:block/hv_thread_hatch"
+    }
+  }
+}

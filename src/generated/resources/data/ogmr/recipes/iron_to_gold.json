@@ -1,0 +1,23 @@
+{
+  "type": "ogmr:generic",
+  "duration": 100,
+  "eut": 512,
+  "inputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:iron_ingot"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:gold_ingot"
+      }
+    }
+  ],
+  "recipe_type": "ogmr:test_recipes",
+  "tier": 3
+}

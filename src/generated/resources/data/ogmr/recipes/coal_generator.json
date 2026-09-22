@@ -1,0 +1,15 @@
+{
+  "type": "ogmr:generic",
+  "duration": 80,
+  "eut": -128,
+  "inputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:coal"
+      }
+    }
+  ],
+  "recipe_type": "ogmr:test_generator_recipes",
+  "tier": 2
+}

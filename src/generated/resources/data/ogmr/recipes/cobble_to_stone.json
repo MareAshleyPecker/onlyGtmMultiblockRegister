@@ -1,0 +1,23 @@
+{
+  "type": "ogmr:generic",
+  "duration": 40,
+  "eut": 32,
+  "inputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:cobblestone"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:stone"
+      }
+    }
+  ],
+  "recipe_type": "ogmr:test_recipes",
+  "tier": 1
+}

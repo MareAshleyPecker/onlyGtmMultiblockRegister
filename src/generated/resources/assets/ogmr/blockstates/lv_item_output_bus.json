@@ -1,0 +1,7 @@
+{
+  "variants": {
+    "": {
+      "model": "ogmr:block/lv_item_output_bus"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+pluginManagement {
+    repositories {
+        // ---- 国内镜像优先（Gradle 插件门户 / 中央仓库）----
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://maven.aliyun.com/repository/gradle-plugin' }
+        maven { url = 'https://maven.aliyun.com/repository/central' }
+        maven { url = 'https://repo.huaweicloud.com/repository/maven/' }
+        maven { url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        // ---- 官方兜底 ----
+        maven { url = 'https://maven.minecraftforge.net/' }
+        maven { url = 'https://bmclapi2.bangbang93.com/maven/' }
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        maven { url = 'https://maven.parchmentmc.org' }
+        gradlePluginPortal()
+    }
+}
+
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.7.0'
+}
+
+dependencyResolutionManagement {
+    repositories {
+        maven { url = 'https://maven.aliyun.com/repository/public' }
+        maven { url = 'https://maven.aliyun.com/repository/central' }
+        maven { url = 'https://repo.huaweicloud.com/repository/maven/' }
+        maven { url = 'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/' }
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'ogmr'

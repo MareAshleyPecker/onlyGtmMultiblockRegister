@@ -1,0 +1,21 @@
+{
+  "type": "ogmr:generic",
+  "duration": 60,
+  "eut": 32,
+  "inputs": [
+    {
+      "type": "test_energy",
+      "eu": 500
+    }
+  ],
+  "outputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:diamond"
+      }
+    }
+  ],
+  "recipe_type": "ogmr:test_recipes",
+  "tier": 1
+}

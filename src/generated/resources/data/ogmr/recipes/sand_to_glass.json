@@ -1,0 +1,23 @@
+{
+  "type": "ogmr:generic",
+  "duration": 20,
+  "eut": 8,
+  "inputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:sand"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "type": "item",
+      "ingredient": {
+        "item": "minecraft:glass"
+      }
+    }
+  ],
+  "recipe_type": "ogmr:test_recipes",
+  "tier": 0
+}
