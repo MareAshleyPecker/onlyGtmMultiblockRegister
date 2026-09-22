@@ -71,25 +71,18 @@ public final class GuiTextures {
     /** 标题文本色。 */
     public static final int COLOR_TEXT_TITLE = 0xFFFFFFFF;
 
-    // ═══════════════════════ 资源贴图常量 ═══════════════════════
+    // ═══════════════════════ 资源贴图常量（本库自带的那几张） ═══════════════════════
 
-    /** 机器 UI 背景（九宫格，4px 边）。 */
-    public static final ResourceBorderTexture BACKGROUND = new ResourceBorderTexture(
-            ROOT + "base/background.png", 16, 16, 4, 4);
-
-    /** 信息栏/内嵌面板背景（九宫格）。 */
+    /**
+     * 信息栏/内嵌面板背景（九宫格）。
+     *
+     * <p>这张是<b>本库自带</b>的：信息栏贴在机器面板外面、直接压在世界画面上，
+     * 需要半透明底板才看得清，LDLib 没有现成的半透明面板。
+     */
     public static final ResourceBorderTexture INFO_BACKGROUND = new ResourceBorderTexture(
             ROOT + "base/info_background.png", 16, 16, 2, 2);
 
-    /** 物品槽（九宫格，1px 边）。 */
-    public static final ResourceBorderTexture SLOT = new ResourceBorderTexture(
-            ROOT + "base/slot.png", 18, 18, 1, 1);
-
-    /** 流体槽（九宫格，1px 边）。 */
-    public static final ResourceBorderTexture FLUID_SLOT = new ResourceBorderTexture(
-            ROOT + "base/fluid_slot.png", 18, 18, 1, 1);
-
-    /** 进度条底槽（整图拉伸）。 */
+    /** 进度条底槽（整图拉伸）；LDLib 没有现成的进度条贴图。 */
     public static final ResourceTexture PROGRESS_BAR_BACKGROUND = new ResourceTexture(
             ROOT + "progress/bar_background.png");
 
@@ -97,17 +90,19 @@ public final class GuiTextures {
     public static final ResourceTexture PROGRESS_BAR_FILLED = new ResourceTexture(
             ROOT + "progress/bar_filled.png");
 
-    /** rtui 默认背景（九宫格）。 */
-    public static final ResourceBorderTexture RECIPE_TYPE_BASE = new ResourceBorderTexture(
-            ROOT + "recipe_type/base.png", 16, 16, 4, 4);
+    // ═══════════════════════ LDLib 自带贴图（现成品，直接用） ═══════════════════════
 
-    /** rtui 里的槽位底图（九宫格，1px 边）。 */
-    public static final ResourceBorderTexture RECIPE_TYPE_SLOT = new ResourceBorderTexture(
-            ROOT + "recipe_type/slot.png", 18, 18, 1, 1);
+    /**
+     * 面板背景 —— 直接用 LDLib 自己的九宫格面板（{@code ldlib:textures/gui/bordered_background.png}）。
+     *
+     * <p>LDLib 是硬依赖，所以这张一定存在；自己再画一张纯属重复劳动。
+     */
+    public static final ResourceBorderTexture LDLIB_PANEL = ResourceBorderTexture.BORDERED_BACKGROUND;
 
-    // ═══════════════════════ LDLib 自带贴图（零美术资源时的现成品） ═══════════════════════
+    /** rtui 用的另一种配色的面板（LDLib 的蓝色版）。 */
+    public static final ResourceBorderTexture LDLIB_PANEL_ALT = ResourceBorderTexture.BORDERED_BACKGROUND_BLUE;
 
-    /** LDLib 自带的物品槽贴图 —— LDLib 一定装了，所以这张一定存在。 */
+    /** LDLib 自带的物品槽贴图。 */
     public static final ResourceBorderTexture LDLIB_SLOT = SlotWidget.ITEM_SLOT_TEXTURE;
 
     /** LDLib 自带的流体槽贴图。 */
@@ -163,34 +158,40 @@ public final class GuiTextures {
 
     // ═══════════════════════ 访问器（受兜底开关影响） ═══════════════════════
 
-    /** 机器 UI 背景。 */
+    /**
+     * 机器 UI 背景 —— LDLib 自带的面板。
+     *
+     * <p>槽位/面板/流体槽这类「LDLib 一定有」的贴图<b>不再自带 png</b>：直接用 LDLib 的现成品，
+     * 省得维护一堆重复美术。{@link #setForceFallback(boolean)} 只会把「本库自带的那几张」
+     * （信息栏底板、进度条）换成纯色兜底。
+     */
     public static IGuiTexture machineBackground() {
-        return forceFallback ? fallback(COLOR_PANEL_FILL, COLOR_PANEL_BORDER) : BACKGROUND;
+        return forceFallback ? fallback(COLOR_PANEL_FILL, COLOR_PANEL_BORDER) : LDLIB_PANEL;
     }
 
-    /** rtui 背景。 */
+    /** rtui 背景（LDLib 的另一种配色面板）。 */
     public static IGuiTexture recipeTypeBackground() {
-        return forceFallback ? fallback(COLOR_PANEL_FILL, COLOR_PANEL_BORDER) : RECIPE_TYPE_BASE;
+        return forceFallback ? fallback(COLOR_PANEL_FILL, COLOR_PANEL_BORDER) : LDLIB_PANEL_ALT;
     }
 
-    /** 信息栏背景。 */
+    /** 信息栏背景（本库自带的半透明底板）。 */
     public static IGuiTexture infoBackground() {
         return forceFallback ? fallback(COLOR_INFO_FILL, COLOR_INFO_BORDER) : INFO_BACKGROUND;
     }
 
-    /** 物品槽背景。 */
+    /** 物品槽背景 —— 直接复用 LDLib 的槽位贴图。 */
     public static IGuiTexture slot() {
-        return forceFallback ? fallback(COLOR_SLOT_FILL, COLOR_SLOT_BORDER) : SLOT;
+        return forceFallback ? fallback(COLOR_SLOT_FILL, COLOR_SLOT_BORDER) : LDLIB_SLOT;
     }
 
-    /** 流体槽背景。 */
+    /** 流体槽背景 —— 直接复用 LDLib 的流体槽贴图。 */
     public static IGuiTexture fluidSlot() {
-        return forceFallback ? fallback(COLOR_FLUID_SLOT_FILL, COLOR_FLUID_SLOT_BORDER) : FLUID_SLOT;
+        return forceFallback ? fallback(COLOR_FLUID_SLOT_FILL, COLOR_FLUID_SLOT_BORDER) : LDLIB_FLUID_SLOT;
     }
 
-    /** rtui 里的物品槽背景。 */
+    /** rtui 里的物品槽背景（同 {@link #slot()}）。 */
     public static IGuiTexture recipeTypeSlot() {
-        return forceFallback ? fallback(COLOR_SLOT_FILL, COLOR_SLOT_BORDER) : RECIPE_TYPE_SLOT;
+        return slot();
     }
 
     /** 进度条底槽。 */

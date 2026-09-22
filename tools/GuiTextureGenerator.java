@@ -7,20 +7,16 @@ import java.io.IOException;
  * ogmr 自带 GUI 贴图的生成器 —— 产物是 {@code src/main/resources/assets/ogmr/textures/gui/**} 下的 PNG。
  *
  * <p>
- * 为什么要生成而不是手画：这些贴图全是「纯色 + 描边」的九宫格，写程序比画图省事，
- * 而且改配色只要改这里的常量。{@code GuiTextures} 里的尺寸/切片参数必须与这里一致：
+ * ⚠️ <b>只生成 LDLib 没有的那几张</b>：物品槽 / 流体槽 / 面板背景这类 LDLib 都有现成品
+ * （{@code SlotWidget.ITEM_SLOT_TEXTURE}、{@code TankWidget.FLUID_SLOT_TEXTURE}、
+ * {@code ResourceBorderTexture.BORDERED_BACKGROUND}），直接用它的，不要在这里重画一遍。
  *
  * <table border="1">
  * <caption>贴图与切片参数</caption>
- * <tr><th>文件</th><th>尺寸</th><th>九宫格边宽</th></tr>
- * <tr><td>base/background.png</td><td>16×16</td><td>4</td></tr>
- * <tr><td>base/info_background.png</td><td>16×16</td><td>2</td></tr>
- * <tr><td>base/slot.png</td><td>18×18</td><td>1</td></tr>
- * <tr><td>base/fluid_slot.png</td><td>18×18</td><td>1</td></tr>
- * <tr><td>recipe_type/base.png</td><td>16×16</td><td>4</td></tr>
- * <tr><td>recipe_type/slot.png</td><td>18×18</td><td>1</td></tr>
- * <tr><td>progress/bar_background.png</td><td>32×16</td><td>整图拉伸</td></tr>
- * <tr><td>progress/bar_filled.png</td><td>32×16</td><td>整图拉伸</td></tr>
+ * <tr><th>文件</th><th>尺寸</th><th>切片</th><th>为什么还得自己出</th></tr>
+ * <tr><td>base/info_background.png</td><td>16×16</td><td>九宫格 2</td><td>信息栏贴在面板外、压在世界画面上，需要半透明底板</td></tr>
+ * <tr><td>progress/bar_background.png</td><td>32×16</td><td>整图拉伸</td><td>LDLib 没有现成的进度条贴图</td></tr>
+ * <tr><td>progress/bar_filled.png</td><td>32×16</td><td>整图拉伸</td><td>同上</td></tr>
  * </table>
  *
  * <p>
@@ -29,7 +25,7 @@ import java.io.IOException;
  * <pre>{@code
  * java tools/GuiTextureGenerator.java
  * # 或者指定输出目录：
- * java tools/GuiTextureGenerator.java src/main/resources/assets/ogmr/textures/gui
+ * java tools/GuiTextureGenerator.java src/main/resources/assets/ogmr/textures
  * }</pre>
  */
 public final class GuiTextureGenerator {
@@ -73,16 +69,13 @@ public final class GuiTextureGenerator {
         // 默认写到 assets/ogmr/textures 根
         File root = new File(args.length > 0 ? args[0] : "src/main/resources/assets/ogmr/textures");
 
-        write(root, "gui/base/background.png", panel(16, PANEL_FILL, PANEL_BORDER, PANEL_LIGHT, PANEL_DARK));
+        // 只生成 LDLib 没有的：信息栏半透明底板 + 进度条
         write(root, "gui/base/info_background.png", panel(16, INFO_FILL, INFO_BORDER, INFO_BORDER, INFO_FILL));
-        write(root, "gui/base/slot.png", slot(18, SLOT_FILL, SLOT_SHADOW, SLOT_HIGHLIGHT));
-        write(root, "gui/base/fluid_slot.png", panel(18, FLUID_FILL, FLUID_BORDER, FLUID_BORDER, FLUID_FILL));
-        write(root, "gui/recipe_type/base.png", panel(16, RTUI_FILL, RTUI_BORDER, RTUI_BORDER, RTUI_FILL));
-        write(root, "gui/recipe_type/slot.png", slot(18, SLOT_FILL, SLOT_SHADOW, SLOT_HIGHLIGHT));
         write(root, "gui/progress/bar_background.png", bar(32, 16, PROGRESS_EMPTY, PROGRESS_EMPTY_BORDER));
         write(root, "gui/progress/bar_filled.png", bar(32, 16, PROGRESS_FILLED, PROGRESS_FILLED_LIGHT));
 
-        // ⚠️ 方块贴图（口 / 覆盖层 / 底盘）不在这里生成 —— 那些是从 GTM 搬来的美术资源，
+        // ⚠️ 槽位 / 面板背景用 LDLib 自带贴图，不在这里生成（见类注释）。
+        // ⚠️ 方块贴图（口 / 覆盖层 / 底盘）也不在这里生成 —— 那些是从 GTM 搬来的美术资源，
         //    见 assets/ogmr/textures/block/** 与 README「贴图来源」一节。
         System.out.println("ogmr: GUI textures written under " + root.getAbsolutePath());
     }

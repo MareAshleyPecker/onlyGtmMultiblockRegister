@@ -511,21 +511,29 @@ REGISTRAR.part("lv_item_bus", ItemBusPartMachine::new)
 
 ### 11.3 界面贴图从哪来
 
-库自带 8 张「纯色 + 描边」的九宫格贴图（`assets/ogmr/textures/gui/**`），所以默认面板不含任何
-紫黑缺失贴图 —— 这也是踩过的坑：`GuiTextures` 里的 `ResourceTexture` 指向的 png 不随库发布时，
-面板背景会整块变成缺失贴图（一半品红一半黑）。
+**能借就借**：物品槽、流体槽、面板背景这些 LDLib 都自带现成品，本库直接用它的，不再自己画一张
+（早期版本自己生成过，纯属重复劳动，已删）：
 
-- 生成器：`tools/GuiTextureGenerator.java`（JDK 17 直接跑单文件源码）
+| 用途 | 用的贴图 |
+|---|---|
+| 物品槽 | `SlotWidget.ITEM_SLOT_TEXTURE` |
+| 流体槽 | `TankWidget.FLUID_SLOT_TEXTURE` |
+| 机器面板背景 | `ResourceBorderTexture.BORDERED_BACKGROUND` |
+| rtui 面板背景 | `ResourceBorderTexture.BORDERED_BACKGROUND_BLUE` |
 
-  ```bash
-  java tools/GuiTextureGenerator.java          # 默认写到 src/main/resources/assets/ogmr/textures
-  ```
+只有两张（组）是 LDLib 没有的，由 `tools/GuiTextureGenerator.java` 生成：
 
-  改配色就改生成器顶部的常量再跑一次；尺寸/切片宽度必须和 `GuiTextures` 的声明一致。
-- 想完全不依赖这些 png（例如全部换用自己的美术），客户端初始化时调一次
-  `GuiTextures.setForceFallback(true)`，所有访问器会改用「纯色铺底 + 描边」的代码贴图。
-- **方块贴图**（仓室的口、覆盖层、外壳）不在这里生成 —— 那些是从 GTM 搬来的美术资源，
-  见 §14「贴图来源与许可」。
+- `gui/base/info_background.png` —— 信息栏的半透明底板（它贴在面板外、直接压在世界画面上，必须半透明）；
+- `gui/progress/bar_{background,filled}.png` —— 进度条（LDLib 的 `ProgressWidget` 只收贴图，不自带）。
+
+```bash
+java tools/GuiTextureGenerator.java   # 默认写到 src/main/resources/assets/ogmr/textures
+```
+
+想完全不依赖这几张 png，客户端初始化时调一次 `GuiTextures.setForceFallback(true)`，
+它们会退化成「纯色铺底 + 描边」的代码贴图（槽位与面板不受影响 —— 那些本来就来自 LDLib）。
+
+**方块贴图**（仓室的口、覆盖层、外壳）也不在这里生成 —— 那些是从 GTM 搬来的美术资源，见 §14。
 
 ---
 
