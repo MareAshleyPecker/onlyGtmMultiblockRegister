@@ -230,14 +230,14 @@ public final class TestRegistrations {
                 // 不写这行的话 builder 会给一个零配置界面 —— 标题 + 背包 + 按仓储自动摆的槽位）
                 .ui(MachineUI.create("test_multiblock", Ogmr.id("test_multiblock"))
                         .title()
-                        .progress(62, 33, 24, 16, ProgressDirection.LEFT_TO_RIGHT,
+                        .progress(88, 40, 24, 16, ProgressDirection.LEFT_TO_RIGHT,
                                 machine -> machine instanceof TestMultiblockMachine multi
                                         ? multi.getRecipeLogic().getProgressPercent()
                                         : 0d)
-                        .text(8, 58, machine -> machine instanceof TestMultiblockMachine multi
+                        .text(10, 70, machine -> machine instanceof TestMultiblockMachine multi
                                 ? Component.translatable("ogmr.test.ui.threads", multi.getMaxThreads())
                                 : Component.empty())
-                        .playerInventory(8, 84))
+                        .playerInventory(10, 118))
                 .modelTexture(TestTextures.CASING_STEEL)
                 .register();
 

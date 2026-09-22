@@ -125,12 +125,18 @@ public class MachineUI {
     @Getter
     private final ResourceLocation uiPath;
 
+    /**
+     * 默认尺寸 —— 比原版的箱子界面（176×166）大一圈：机器名往往比 176 还长，
+     * 槽位也不止 3×9，给足空间才不至于挤在一起。
+     */
     @Getter
-    private int width = 176;
+    private int width = 200;
     @Getter
-    private int height = 166;
+    private int height = 210;
     private IGuiTexture background = GuiTextures.machineBackground();
     private boolean withTitle = false;
+    /** 标题最多显示多少个字符（超出的截断成 {@code …}）；{@code <= 0} 表示不截断。 */
+    private int titleChars = DEFAULT_TITLE_CHARS;
 
     @Nullable
     private Position playerInventoryPos;
@@ -156,14 +162,17 @@ public class MachineUI {
 
     // ═══════════════════════ 自动布局参数 ═══════════════════════
 
-    /** 自动槽位的起始位置（9 个一行，最多两行）。 */
-    private static final int AUTO_SLOT_X = 8;
-    private static final int AUTO_SLOT_Y = 20;
-    /** 自动储罐的起始位置（一行最多 3 个 18×18 小罐）。 */
-    private static final int AUTO_TANK_X = 8;
-    private static final int AUTO_TANK_Y = 58;
+    /** 默认标题字符上限（200 宽的面板约放得下这么多字，再长就会压到右侧信息栏上）。 */
+    public static final int DEFAULT_TITLE_CHARS = 28;
+
+    /** 自动槽位的起始位置（9 个一行，最多三行）。 */
+    private static final int AUTO_SLOT_X = 10;
+    private static final int AUTO_SLOT_Y = 24;
+    /** 自动储罐：竖着排在最右侧一列（18×18 一个）。 */
+    private static final int AUTO_TANK_X = 178;
+    private static final int AUTO_TANK_Y = 24;
     /** 自动布局最多摆多少个槽位 / 储罐。 */
-    private static final int AUTO_MAX_SLOTS = 18;
+    private static final int AUTO_MAX_SLOTS = 27;
     private static final int AUTO_MAX_TANKS = 3;
 
     // ═══════════════════════ 内部类型 ═══════════════════════
@@ -220,7 +229,8 @@ public class MachineUI {
     public static MachineUI createDefault(String groupName, ResourceLocation uiPath) {
         return create(groupName, uiPath)
                 .title()
-                .playerInventory(8, 84)
+                // 玩家背包贴在底部：210 高的面板减去背包高度（约 84）与下边距
+                .playerInventory(10, 118)
                 .autoLayout(true);
     }
 
@@ -237,7 +247,12 @@ public class MachineUI {
         return autoLayout;
     }
 
-    /** 界面尺寸（默认 176×166，即标准箱子界面）。 */
+    /**
+     * 界面尺寸（默认 {@code 200×210}）。
+     *
+     * <p>比原版箱子界面（176×166）大一圈：机器名常常比 176 长、槽位也常常不止 3×9，
+     * 挤在 176 里会互相压。想回到原版尺寸就 {@code .size(176, 166)}。
+     */
     public MachineUI size(int w, int h) {
         this.width = w;
         this.height = h;
@@ -254,9 +269,20 @@ public class MachineUI {
      * 加一行机器名 —— {@code Component.translatable(definition.getDescriptionId())}。
      *
      * <p>位置固定在 (6, 6)；想挪位置就直接用 {@link #widget(Widget)} 自己塞一个 LabelWidget。
+     * 名字太长会按 {@link #DEFAULT_TITLE_CHARS} 截断（LDLib 的 LabelWidget 不会裁剪，
+     * 不截断就会画到右侧信息栏上）。
      */
     public MachineUI title() {
         this.withTitle = true;
+        return this;
+    }
+
+    /**
+     * 同上，但指定标题最多显示多少字符（{@code <= 0} = 不截断，你自己保证放得下）。
+     */
+    public MachineUI title(int maxChars) {
+        this.withTitle = true;
+        this.titleChars = maxChars;
         return this;
     }
 
@@ -528,7 +554,7 @@ public class MachineUI {
         if (withTitle) {
             Widget title = findById(root, ID_TITLE);
             if (title instanceof LabelWidget label) {
-                label.setComponent(Component.translatable(machine.getDefinition().getDescriptionId()));
+                label.setComponent(clipTitle(Component.translatable(machine.getDefinition().getDescriptionId())));
             }
         }
         for (Entry entry : active) {
@@ -541,7 +567,6 @@ public class MachineUI {
 
     /**
      * 交给 {@code MachineDefinition.setEditableUI(...)} 的句柄。
-     *
      * <p>同一个 {@code MachineUI} 只会造一个实例（缓存），所以编辑器保存 .mui 后调
      * {@link EditableMachineUI#reloadCustomUI()} 就能让运行时也看到新布局。
      */
@@ -555,6 +580,23 @@ public class MachineUI {
                     .withOwner(this);
         }
         return editableUI;
+    }
+
+    /**
+     * 标题太长时截断 —— 机器名（例如 {@code Test Energy Input Hatch (EU display)}）比 176 宽的
+     * 面板还长，不截断会一路画到右侧信息栏上，两边文字叠在一起。
+     *
+     * <p>
+     * 这里按<b>字符数</b>截断而不是量字体宽度：LDLib 的 {@code LabelWidget} 不会裁剪，
+     * 而 GUI 是公共代码（量宽度要碰客户端字体）。上限由 {@link #title(int)} 调，默认
+     * {@link #DEFAULT_TITLE_CHARS} 个字符，超出部分用 {@code …} 收尾。
+     */
+    private Component clipTitle(Component title) {
+        String text = title.getString();
+        if (titleChars <= 0 || text.length() <= titleChars) {
+            return title;
+        }
+        return Component.literal(text.substring(0, titleChars) + "…").withStyle(title.getStyle());
     }
 
     // ═══════════════════════ 只读访问器 ═══════════════════════

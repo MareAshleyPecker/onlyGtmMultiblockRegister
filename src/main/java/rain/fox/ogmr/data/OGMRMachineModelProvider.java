@@ -102,8 +102,14 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
         Ogmr.LOGGER.info("ogmr: generated block models for {} machine(s) of '{}'", count, modId);
     }
 
-    /** 相邻两层之间的外凸步长（格）—— 小到看不见厚度，但足以让深度测试分出先后。 */
-    private static final float LAYER_STEP = 0.001f;
+    /**
+     * 每层之间、以及层与底盘之间的间隔（格）—— 取 GTM 机器模型模板里的值（{@code from [0,0,-0.01]}）。
+     *
+     * <p>0.01 格 = 1/1600 方块：肉眼看不出来，但足够让深度测试分出先后（0.001 太贴，远距离会闪）。
+     * 坐标必须落在 {@code [-16, 32]} 内，0.01 当然没问题；注意<b>不能</b>用「把整个面元素往外平移
+     * 一个方块」那种写法，那会直接撞上 {@code -16} 的下界。
+     */
+    private static final float LAYER_OFFSET = 0.01f;
 
     /**
      * 层画在哪一面 —— 必须是 <b>SOUTH</b>。
@@ -236,18 +242,17 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
             model.renderType("cutout");
         }
 
-        // ⓪ 底盘：整块，六面同一个贴图；整体缩进一点，给各层让出深度空间
-        float shrink = LAYER_STEP * (layers.size() + 1);
+        // ⓪ 底盘：0..16 的整块，六面同一个贴图 + cullface（和原版 cube_all / GTM 机器模板一致）
         model.element()
-                .from(shrink, shrink, shrink)
-                .to(16f - shrink, 16f - shrink, 16f - shrink)
-                .allFaces((dir, face) -> face.texture("#all"))
+                .from(0, 0, 0)
+                .to(16, 16, 16)
+                .allFaces((dir, face) -> face.texture("#all").cullface(dir))
                 .end();
 
-        // ①…各层：最上面那层贴着方块表面，往下每一层依次缩进 LAYER_STEP
-        for (int i = 0; i < layers.size(); i++) {
-            float plane = 16f - LAYER_STEP * (layers.size() - i);
-            addFaceLayer(model, CANONICAL_FACE, layers.get(i).textureKey(), layers.get(i).texture(), plane);
+        // ①…各层：零厚度平面，一层比一层往外 0.01（GTM 的 hatch_machine.json 就是这么写的）
+        int index = 0;
+        for (Layer layer : layers) {
+            addFlatLayer(model, CANONICAL_FACE, layer.textureKey(), layer.texture(), ++index);
         }
         return model;
     }
@@ -262,28 +267,33 @@ public class OGMRMachineModelProvider extends BlockStateProvider {
     private record Layer(String namePart, String textureKey, ResourceLocation texture) {}
 
     /**
-     * 往模型里加一层「只在这一面有贴图的薄片」。
+     * 往模型里加一层「贴在某一面外侧的零厚度平面」——照抄 GTM {@code hatch_machine.json} 的写法：
+     * {@code "from": [0,0,-0.01], "to": [16,16,-0.01]}，也就是<b>在朝外的那个轴上 from == to</b>。
      *
-     * <p>薄片只定义朝外那一个 face，其余 5 面不写 = 不渲染 —— 这就是「只渲染这一面」。
-     * {@code plane} 是它离方块中心的距离（永远取正值，朝负方向的面取负号即可）。
-     *
-     * <p>⚠️ {@code face.texture(...)} 收的是<b>引用</b>（要带 {@code #}），传裸键会被当成贴图路径，
-     * 生成出 {@code "texture": "minecraft:overlay"} 这种坏引用（游戏里就是缺失贴图）。
+     * <p>
+     * 三个要点：
+     * <ol>
+     * <li><b>零厚度</b>：只定义朝外那一个 face，其余 5 面不写 = 不渲染 →「只渲染这一面」；</li>
+     * <li><b>显式 UV</b> {@code [0,0,16,16]}：与 GTM 模板一致，保证贴图整面铺满
+     * （不写 UV 时 MC 会按元素包围盒自动推导，退化元素上容易得到意外的映射）；</li>
+     * <li><b>层次靠 {@code offset}</b>：第 n 层在方块表面外 {@code 0.01 * n} 处，坐标只会在
+     * {@code [0, 16 + 0.0x]} 或 {@code [-0.0x, 16]} 之间，绝不会碰到 {@code [-16, 32]} 的边界。</li>
+     * </ol>
      */
-    private static void addFaceLayer(BlockModelBuilder model, Direction side, String textureKey,
-                                     ResourceLocation texture, float plane) {
+    private static void addFlatLayer(BlockModelBuilder model, Direction side, String textureKey,
+                                     ResourceLocation texture, int index) {
         model.texture(textureKey, texture);
-        float inner = plane - LAYER_STEP;
+        float offset = LAYER_OFFSET * index;
         var element = model.element();
         switch (side) {
-            case UP -> element.from(0, inner, 0).to(16, plane, 16);
-            case DOWN -> element.from(0, -plane, 0).to(16, -inner, 16);
-            case SOUTH -> element.from(0, 0, inner).to(16, 16, plane);
-            case NORTH -> element.from(0, 0, -plane).to(16, 16, -inner);
-            case EAST -> element.from(inner, 0, 0).to(plane, 16, 16);
-            case WEST -> element.from(-plane, 0, 0).to(-inner, 16, 16);
+            case UP -> element.from(0, 16 + offset, 0).to(16, 16 + offset, 16);
+            case DOWN -> element.from(0, -offset, 0).to(16, -offset, 16);
+            case SOUTH -> element.from(0, 0, 16 + offset).to(16, 16, 16 + offset);
+            case NORTH -> element.from(0, 0, -offset).to(16, 16, -offset);
+            case EAST -> element.from(16 + offset, 0, 0).to(16 + offset, 16, 16);
+            case WEST -> element.from(-offset, 0, 0).to(-offset, 16, 16);
         }
-        element.face(side).texture("#" + textureKey).end().end();
+        element.face(side).texture("#" + textureKey).uvs(0, 0, 16, 16).end().end();
     }
 
     /**
