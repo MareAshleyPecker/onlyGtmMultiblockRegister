@@ -1,3 +1,6 @@
+# 烂尾项目ing
+
+
 # onlyGtmMultiblockRegister（ogmr）
 
 一个**独立**的「格雷式」多方块注册工具库 —— 把 GregTech Modern 的多方块注册体系整体拆出来，
